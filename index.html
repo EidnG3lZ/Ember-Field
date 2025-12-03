@@ -25,15 +25,16 @@
 <body>
     <canvas id="canvas_1">浏览器不支持canvas</canvas>
 
-    <script src="js/FireSimulate.js"></script>
-    <script src="js/Drawer.js"></script>
-    <script>
+    <!-- <script src="js/FireSimulate.js"></script>
+    <script src="js/Drawer.js"></script> -->
+    <script src="js/main.js"></script>
+    <!-- <script>
         const canvas1 = document.getElementById("canvas_1");
 
         let cellSize = 4;//细胞大小
         let tickTime = 50;//每帧持续时间，单位毫秒
-        let pRevive = 0.05;//生长概率
-        let pIgnite = 0.0001;//起火概率
+        let pRevive = 0.002;//生长概率
+        let pIgnite = 0.00001;//起火概率
         let deadColor = "#292929"
         let aliveColor = "#1ebf0c"
         let burnColor1 = "#f1c40f"
@@ -71,7 +72,6 @@
 
         //循环
         function loop() {
-            console.log("正在循环")
             fireSimulate.tick();
             drawer.draw();
         }
@@ -81,16 +81,18 @@
         }
         (async function doTickLoop() {
             while (true) {
-                let startTime = Date.now();
+                const startTime = Date.now();
                 loop();
-                let sleepTime = tickTime - (Date.now() - startTime);
+                const usedTime = Date.now() - startTime;
+                // console.log(`used time:${usedTime}`)
+                const sleepTime = tickTime - usedTime;
                 if (sleepTime <= 0) {
                     continue;
                 }
                 await sleep(sleepTime);
             }
         })();
-    </script>
+    </script> -->
 </body>
 
 </html>
