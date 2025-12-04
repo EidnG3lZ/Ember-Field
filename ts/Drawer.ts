@@ -1,18 +1,21 @@
 export class Drawer {
-    private context;
-    private blockSize;
+    private context;//画布上下文
+    private blockSize;//细胞大小
+    //细胞在x和y方向上的数量
     private blockNumX;
     private blockNumY;
+    //绘制区域宽和高
     private drawWidth;
     private drawHeight;
     private cellGrid;
-    private deadColor;
-    private aliveColor;
+    private deadColor;//死细胞颜色
+    private aliveColor;//活细胞颜色
+    //不同燃烧状态的颜色
     private burnColor1;
     private burnColor2;
     private burnColor3;
-    //保存上一次绘制的内容，用于剔除未改动的部分
-    private oldGrid;
+    
+    private oldGrid;//保存上一次绘制的内容，用于剔除未改动的部分
 
     constructor(
         context: CanvasRenderingContext2D | null,

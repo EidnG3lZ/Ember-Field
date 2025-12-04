@@ -4,20 +4,33 @@ export class FireSimulate {
     private pRevive;
     private pIgnite;
     private fireSpreadSpeed;
+    private burnStatusTime;
+    // private isSkipSpread;
     private cellGrid;//细胞状态：0：死亡，1：生存，2-4：燃烧
     private isInFire = false;
+    private burnTimer: number = 0;
 
     private directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];//定义什么算“相邻”
     //搜索的输入和输出数组
     private bfsSearchCells = new Array();
     private bfsOutputCells = new Array();
 
-    constructor(cellNumX: number, cellNumY: number, pRevive: number, pIgnite: number, fireSpreadSpeed: number = 10) {
+    constructor(
+        cellNumX: number,
+        cellNumY: number,
+        pRevive: number,
+        pIgnite: number,
+        fireSpreadSpeed: number,
+        burnStatusTime: number,
+        // isSkipSpread:boolean
+    ) {
         this.cellNumX = cellNumX;
         this.cellNumY = cellNumY;
         this.pRevive = pRevive;
         this.pIgnite = pIgnite;
         this.fireSpreadSpeed = fireSpreadSpeed;
+        this.burnStatusTime = (burnStatusTime >= 1) ? burnStatusTime : 1;
+        // this.isSkipSpread = isSkipSpread;
         this.cellGrid = new Uint8Array(this.cellNumX * this.cellNumY);
     }
 
@@ -64,6 +77,14 @@ export class FireSimulate {
     setFireSpreadSpeed(value: number) {
         this.fireSpreadSpeed = value;
     }
+    
+    setBurnStatusTime(value:number){
+        this.burnStatusTime = value;
+    }
+
+    // setSkipSpread(value:boolean){
+    //     this.isSkipSpread = value;
+    // }
 
     tick() {
         // console.log(this._cellGrid)
@@ -72,19 +93,35 @@ export class FireSimulate {
         {
             if (this.isInFire == true) {
                 //遍历所有细胞，推进燃烧阶段；没有细胞可推进时退出火灾状态
-                let counter = 0;
-                for (let cellIndex in this.cellGrid) {
-                    if (this.cellGrid[cellIndex] >= 2) {
-                        counter++;
-                        this.cellGrid[cellIndex]++;
-                        if (this.cellGrid[cellIndex] > 4) {
-                            this.cellGrid[cellIndex] = 0;
+                // if (this.isSkipSpread) {
+                //     for (const index in this.cellGrid) {
+                //         if (!Object.hasOwn(this.cellGrid, index)) continue;
+                //         if (this.cellGrid[index] == 2) {
+                //             this.cellGrid[index] = 0;
+                //         }
+                //     }
+                //     this.isInFire = false;
+                //     break fire;
+                // }
+                if (this.burnTimer == 0) {
+                    let counter = 0;
+                    for (let cellIndex in this.cellGrid) {
+                        if (this.cellGrid[cellIndex] >= 2) {
+                            counter++;
+                            this.cellGrid[cellIndex]++;
+                            if (this.cellGrid[cellIndex] > 4) {
+                                this.cellGrid[cellIndex] = 0;
+                            }
                         }
                     }
+                    if (counter == 0) {
+                        this.isInFire = false;
+                        break fire;
+                    }
                 }
-                if (counter == 0) {
-                    this.isInFire = false;
-                    break fire;
+                this.burnTimer++;
+                if (this.burnTimer >= this.burnStatusTime) {
+                    this.burnTimer = 0;
                 }
                 //蔓延火灾
                 for (let i = 0; i < this.fireSpreadSpeed; i++) {
