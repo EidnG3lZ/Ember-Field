@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" type="text/css" href="css/font.css">
     <style type="text/css">
         html,
         body {
@@ -19,11 +20,39 @@
             width: 100vw;
             height: 100vh;
         }
+
+        #subassembly-table {
+            border-style: solid;
+            border-width: 2px;
+            border-color: rgb(219, 219, 219);
+            background-color: rgba(34, 34, 34, 0.937);
+            display: block;
+            position: absolute;
+            left: 50%;
+            bottom: 0%;
+            transform: translate(-50%, 0%);
+        }
+
+        .form_1 {
+            display: block;
+            position: absolute;
+            left: 0px;
+            top: 0px;
+        }
     </style>
 </head>
 
 <body>
     <canvas id="canvas_1">浏览器不支持canvas</canvas>
+    <div id="subassembly-table">
+        <div id="statistics_div">
+            <canvas id="canvas_2" class="form_1"></canvas>
+            <canvas id="canvas_3" class="form_1"></canvas>
+        </div>
+        <!-- test -->
+        <input type="range" id="scaleSlider" min="0.5" max="1.5" step="0.05" value="1" style="display:block">
+    </div>
+
 
     <!-- <script src="js/FireSimulate.js"></script>
     <script src="js/Drawer.js"></script> -->

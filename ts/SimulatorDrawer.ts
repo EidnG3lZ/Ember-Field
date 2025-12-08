@@ -1,4 +1,6 @@
-export class Drawer {
+import { FireSimulate } from "./FireSimulate";
+
+export class SimulatorDrawer {
     private context;//画布上下文
     private blockSize;//细胞大小
     //细胞在x和y方向上的数量
@@ -8,13 +10,13 @@ export class Drawer {
     private drawWidth;
     private drawHeight;
     private cellGrid;
-    private deadColor;//死细胞颜色
-    private aliveColor;//活细胞颜色
+    deadColor;//死细胞颜色
+    aliveColor;//活细胞颜色
     //不同燃烧状态的颜色
-    private burnColor1;
-    private burnColor2;
-    private burnColor3;
-    
+    burnColor1;
+    burnColor2;
+    burnColor3;
+
     private oldGrid;//保存上一次绘制的内容，用于剔除未改动的部分
 
     constructor(
@@ -22,7 +24,7 @@ export class Drawer {
         blockSize: number,
         blockNumX: number,
         blockNumY: number,
-        cellGrid: Uint8Array,
+        dataSource: FireSimulate,
         deadColor: string,
         aliveColor: string,
         burnColor1: string,
@@ -38,40 +40,38 @@ export class Drawer {
         this.blockNumY = blockNumY;
         this.drawWidth = blockSize * blockNumX;
         this.drawHeight = blockSize * blockNumY;
-        this.cellGrid = cellGrid;
+        this.cellGrid = dataSource.getCellGrid();
         this.deadColor = deadColor;
         this.aliveColor = aliveColor;
         this.burnColor1 = burnColor1;
         this.burnColor2 = burnColor2;
         this.burnColor3 = burnColor3;
 
-        this.oldGrid = new Uint8Array(cellGrid.length);
+        this.oldGrid = new Uint8Array(this.cellGrid.length);
         context.fillStyle = deadColor;
         context.fillRect(0, 0, this.drawWidth, this.drawHeight);
     }
 
-    setDeadColor(value: string) {
-        this.deadColor = value;
-    }
-
-    setAliveColor(value: string) {
-        this.aliveColor = value;
-    }
-
-    setBurnColor1(value: string) {
-        this.burnColor1 = value;
-    }
-
-    setBurnColor2(value: string) {
-        this.burnColor2 = value;
-    }
-
-    setBurnColor3(value: string) {
-        this.burnColor3 = value;
-    }
-
     private getCellIndex(x: number, y: number) {
         return y * this.blockNumX + x
+    }
+
+    private isSameColor(state1: number, state2: number) {
+        if (state1 == state2) {
+            return true;
+        }
+        if ((state1 == 0 || state1 == 1) || (state2 == 0 || state2 == 1)) {
+            return false;
+        }
+        return (state1 >> 1) == (state2 >> 1)
+    }
+
+    private getColorStateID(state: number) {
+        if (state == 0 || state == 1) {
+            return state;
+        } else {
+            return (state >> 1) + 1;
+        }
     }
 
     draw() {
@@ -87,18 +87,19 @@ export class Drawer {
                 const index = this.getCellIndex(x, y)
                 const cellState = this.cellGrid[index];
                 const cellStateOld = this.oldGrid[index];
-                if (cellState == cellStateOld) {
+                if (this.isSameColor(cellState, cellStateOld)) {
                     continue;
                 }
-                if (cellState == 0) {
+                const colorStateID = this.getColorStateID(cellState);
+                if (colorStateID == 0) {
                     this.context.fillStyle = this.deadColor;
-                } else if (cellState == 1) {
+                } else if (colorStateID == 1) {
                     this.context.fillStyle = this.aliveColor;
-                } else if (cellState == 2) {
+                } else if (colorStateID == 2) {
                     this.context.fillStyle = this.burnColor1;
-                } else if (cellState == 3) {
+                } else if (colorStateID == 3) {
                     this.context.fillStyle = this.burnColor2;
-                } else if (cellState == 4) {
+                } else if (colorStateID == 4) {
                     this.context.fillStyle = this.burnColor3;
                 } else {
                     this.context.fillStyle = "#ff00ff";
