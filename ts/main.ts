@@ -34,8 +34,12 @@ let burnColor2 = "#e67e22";
 let burnColor3 = "#e74c3c";
 let formColor: string = "#ffffffff";
 let textColor: string = "#ffffffff";
-let pointColor: string = "#c71f1fff";
+let pointColor: string = "#dca91dff";
+let pointSize: number = 10;
 let statisticsScale = 1;
+let font: string = "10px orbitronmedium"
+
+let isFontReady: boolean = false;
 
 let cellNumberX: number;
 let cellNumberY: number;
@@ -45,6 +49,22 @@ let simulatorDrawer: SimulatorDrawer;
 let statisticsDrawer: StatisticsDrawer;
 
 // let statistics: Map<number, number>;
+
+//修改字体时
+function changeFont(newFont: string) {
+    font = newFont;
+    isFontReady = false;
+    loadFontAndDrawForm();
+}
+
+function loadFontAndDrawForm() {
+    document.fonts.load(font).then(
+        () => {
+            isFontReady = true;
+            statisticsDrawer.drawForm(true);
+        }
+    )
+}
 
 function resizeSimulate() {
     const width = window.innerWidth;
@@ -82,13 +102,16 @@ function resizeSimulate() {
         originalStatisticsSize.y,
         fireSimulate,
         40,
-        4,
+        pointSize,
         statisticsScale,
         formColor,
         textColor,
-        pointColor
+        pointColor,
+        font
     );
-    statisticsDrawer.drawForm();
+    statisticsDrawer.clear();
+    statisticsDrawer.drawForm(false);
+    loadFontAndDrawForm();
     //test
     // let ctx = canvas1.getContext('2d');
     // ctx.fillRect(0, 0, 32, 32);
