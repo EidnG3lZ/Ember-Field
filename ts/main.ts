@@ -6,12 +6,23 @@ const simulatorCanvas = document.getElementById("canvas_1") as HTMLCanvasElement
 const statisticsDiv = document.getElementById("statistics_div") as HTMLDivElement;
 const statisticsForm = document.getElementById("canvas_2") as HTMLCanvasElement;
 const statisticsPoint = document.getElementById("canvas_3") as HTMLCanvasElement;
+const subassemblyTable = document.getElementById("subassembly-table") as HTMLDivElement;
+const btn = document.getElementById("btn1") as HTMLButtonElement;
 
 //test
 const slider = document.getElementById('scaleSlider') as HTMLInputElement;
 slider.addEventListener('input', () => {
     statisticsScale = parseFloat(slider.value);
     resizeStatistics(statisticsScale);
+});
+
+btn.addEventListener("click",()=>{
+    const result = subassemblyTable.classList.toggle("show");
+    if(result){
+        btn.innerHTML = "▼";
+    }else{
+        btn.innerHTML = "▲";
+    }
 });
 
 const originalStatisticsSize = {

@@ -15,6 +15,12 @@
             height: 100%;
         }
 
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         #canvas_1 {
             display: block;
             width: 100vw;
@@ -22,15 +28,36 @@
         }
 
         #subassembly-table {
-            border-style: solid;
+            /* border-style: solid;
             border-width: 2px;
-            border-color: rgb(219, 219, 219);
+            border-color: rgb(219, 219, 219); */
+            outline: rgb(219, 219, 219) 2px solid;
             background-color: rgba(34, 34, 34, 0.937);
+            /* background-color: rgb(237, 228, 162); */
             display: block;
             position: absolute;
             left: 50%;
             bottom: 0%;
-            transform: translate(-50%, 0%);
+            transform: translate(-50%, 100%);
+            transition: transform 0.3s ease;
+        }
+
+        #subassembly-table.show {
+            transform: translate(-50%, 0);
+        }
+
+        #btn1 {
+            display: block;
+            position: absolute;
+            background-color: rgba(34, 34, 34, 0.937);
+            font-size: 15px;
+            color: rgb(219, 219, 219);
+            border-color: rgb(219, 219, 219);
+            border-style: solid;
+            border-width: 2px;
+            right: -2px;
+            top: 0;
+            transform: translate(0, -100%);
         }
 
         .form_1 {
@@ -38,6 +65,71 @@
             position: absolute;
             left: 0px;
             top: 0px;
+        }
+
+        #clock {
+            position: absolute;
+            left: 50%;
+            top: 5%;
+            transform: translate(-50%, 0);
+            /* width: 200px;
+            height: 100px; */
+
+            width: 400px;
+            height: 200px;
+            display: flex;
+            flex-direction: column;
+            /* background-color: #f0f0f0; */
+        }
+
+        #week {
+            /* display: block;
+            width: 50%;
+            height: 20%;
+
+            background-color: brown; */
+            width: 50%;
+            /* 400px 的一半 */
+            height: 20%;
+            /* 200px 的 20% */
+            background-color: #017cff;
+        }
+
+        #time {
+            /* display: block;
+            width: 100%;
+            height: 60%;
+
+            background-color: blue; */
+
+            width: 100%;
+            height: 60%;
+            /* 200px 的 60% */
+            background-color: #62b700;
+
+        }
+
+        #date_and_decoration {
+            width: 100%;
+            height: 20%;
+            /* 200px 的 20% */
+            display: flex;
+            background-color: #ffe0b2;
+        }
+
+        #decoration,
+        #date {
+            flex: 1;
+            /* 各占 50% 宽度 */
+            height: 100%;
+        }
+
+        #decoration {
+            background-color: rgb(235, 235, 0);
+        }
+
+        #date {
+            background-color: rgb(255, 0, 0);
         }
     </style>
 </head>
@@ -51,77 +143,19 @@
         </div>
         <!-- test -->
         <input type="range" id="scaleSlider" min="0.5" max="1.5" step="0.05" value="1" style="display:block">
+        <button id="btn1">▲</button>
+    </div>
+    <div id="clock">
+        <div id="week"></div>
+        <div id="time"></div>
+        <div id="date_and_decoration">
+            <div id="decoration"></div>
+            <div id="date"></div>
+        </div>
     </div>
 
 
-    <!-- <script src="js/FireSimulate.js"></script>
-    <script src="js/Drawer.js"></script> -->
     <script src="js/main.js"></script>
-    <!-- <script>
-        const canvas1 = document.getElementById("canvas_1");
-
-        let cellSize = 4;//细胞大小
-        let tickTime = 50;//每帧持续时间，单位毫秒
-        let pRevive = 0.002;//生长概率
-        let pIgnite = 0.00001;//起火概率
-        let deadColor = "#292929"
-        let aliveColor = "#1ebf0c"
-        let burnColor1 = "#f1c40f"
-        let burnColor2 = "#e67e22"
-        let burnColor3 = "#e74c3c"
-
-        let cellNumberX;
-        let cellNumberY;
-
-        let fireSimulate;
-        let drawer;
-
-        function resizeSimulate() {
-            const width = window.innerWidth;
-            const height = window.innerHeight;
-            canvas1.width = width;
-            canvas1.height = height;
-            cellNumberX = Math.ceil(width / cellSize);
-            cellNumberY = Math.ceil(height / cellSize);
-
-            fireSimulate = new FireSimulate(cellNumberX, cellNumberY, pRevive, pIgnite);
-            drawer = new Drawer(canvas1.getContext("2d"), cellSize, cellNumberX, cellNumberY, fireSimulate.getCellGrid(), deadColor, aliveColor, burnColor1, burnColor2, burnColor3)
-
-            //test
-            // let ctx = canvas1.getContext('2d');
-            // ctx.fillRect(0, 0, 32, 32);
-            // ctx.fillRect(width-64,height-64,32,32);
-        }
-
-        //初始化
-        (function setup() {
-            resizeSimulate();
-            window.addEventListener('resize', resizeSimulate);
-        })();
-
-        //循环
-        function loop() {
-            fireSimulate.tick();
-            drawer.draw();
-        }
-
-        function sleep(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
-        }
-        (async function doTickLoop() {
-            while (true) {
-                const startTime = Date.now();
-                loop();
-                const usedTime = Date.now() - startTime;
-                // console.log(`used time:${usedTime}`)
-                const sleepTime = tickTime - usedTime;
-                if (sleepTime <= 0) {
-                    continue;
-                }
-                await sleep(sleepTime);
-            }
-        })();
-    </script> -->
 </body>
 
 </html>
