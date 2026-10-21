@@ -1,204 +1,285 @@
+export interface FireStatistics {
+    version: number;
+    /** 火灾规模（燃烧细胞总数） -> 发生次数 */
+    data: Map<number, number>;
+}
+
+export interface FireSimulateOptions {
+    cellNumX: number;
+    cellNumY: number;
+    pRevive: number;
+    pIgnite: number;
+    fireSpreadSpeed: number;
+    burnStatusTime: number;
+    isSkipSpread: boolean;
+    statistics?: FireStatistics;
+}
+
+const DIRECTION_X = [1, -1, 0, 0];
+const DIRECTION_Y = [0, 0, 1, -1];
+
+export function createFireStatistics(): FireStatistics {
+    return {
+        version: 0,
+        data: new Map()
+    };
+}
+
 export class FireSimulate {
-    private cellNumX;
-    private cellNumY;
-    private pRevive;
-    private pIgnite;
-    private fireSpreadSpeed;
-    private burnStatusTime;
-    private isSkipSpread;//跳过火灾传播过程
-    //细胞状态：
-    //0b_______0：死亡
-    //0b_______1：生存
-    //0b_____00_：未燃烧
-    //0b_____01_：燃烧阶段1
-    //0b_____10_：燃烧阶段2
-    //0b_____11_：燃烧阶段3
-    private cellGrid;
-    private fireStatistics: FireStatistics;//火灾统计
+    private cellNumX: number;
+    private cellNumY: number;
+    private pRevive: number;
+    private pIgnite: number;
+    private fireSpreadSpeed: number;
+    private burnStatusTime: number;
+    private isSkipSpread: boolean;
+    // 细胞状态：
+    // 0b_______0：死亡
+    // 0b_______1：生存
+    // 0b_____00_：未燃烧
+    // 0b_____01_：燃烧阶段1
+    // 0b_____10_：燃烧阶段2
+    // 0b_____11_：燃烧阶段3
+    private cellGrid: Uint8Array;
+    private statistics: FireStatistics;
     private statisticsTemp = 0;
     private isInFire = false;
-    private burnTimer: number = 0;
+    private burnTimer = 0;
 
-    private directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];//定义什么算“相邻”
-    //搜索的输入和输出数组
-    private bfsSearchCells = new Array();
-    private bfsOutputCells = new Array();
+    // 搜索队列使用扁平数组 [x0, y0, x1, y1, ...]，避免每个细胞创建对象
+    private bfsSearchCells: number[] = [];
+    private bfsOutputCells: number[] = [];
 
-    constructor(
-        cellNumX: number,
-        cellNumY: number,
-        pRevive: number,
-        pIgnite: number,
-        fireSpreadSpeed: number,
-        burnStatusTime: number,
-        isSkipSpread: boolean
-    ) {
-        this.cellNumX = cellNumX;
-        this.cellNumY = cellNumY;
-        this.pRevive = pRevive;
-        this.pIgnite = pIgnite;
-        this.fireSpreadSpeed = fireSpreadSpeed;
-        this.burnStatusTime = (burnStatusTime >= 1) ? burnStatusTime : 1;
-        this.isSkipSpread = isSkipSpread;
-        const cellNum = cellNumX * cellNumY;
-        this.cellGrid = new Uint8Array(cellNum);
-        this.fireStatistics = {
-            version: 0,
-            data: new Map()
-        }
+    constructor(options: FireSimulateOptions) {
+        this.cellNumX = Math.max(1, Math.floor(options.cellNumX));
+        this.cellNumY = Math.max(1, Math.floor(options.cellNumY));
+        this.pRevive = options.pRevive;
+        this.pIgnite = options.pIgnite;
+        this.fireSpreadSpeed = Math.max(1, options.fireSpreadSpeed);
+        this.burnStatusTime = Math.max(1, options.burnStatusTime);
+        this.isSkipSpread = options.isSkipSpread;
+        this.cellGrid = new Uint8Array(this.cellNumX * this.cellNumY);
+        this.statistics = options.statistics ?? createFireStatistics();
     }
 
     private getCellIndex(x: number, y: number) {
-        return y * this.cellNumX + x
+        return y * this.cellNumX + x;
     }
 
-    //输入待搜索细胞，将输入细胞的相邻活细胞变为燃烧状态，输出下一轮应搜索的细胞
-    //targetCells是一个成员为[x,y]的数组；outputCells作为输出数组，以避免频繁创建删除对象
-    private bfsIgniteNext(targetCells: any[], outputCells: any[]) {
-        outputCells.length = 0;//清空输出数组
-        for (let [cellX, cellY] of targetCells) {
-            //遍历相对位置细胞
-            for (let [dx, dy] of this.directions) {
-                let searchingX = cellX + dx;
-                let searchingY = cellY + dy;
-                //排除越界
-                if (searchingX < 0 || searchingX >= this.cellNumX || searchingY < 0 || searchingY >= this.cellNumY) {
+    /**
+     * 将输入队列中细胞的相邻活细胞点燃，并把下一轮待搜索的细胞写入 output。
+     */
+    private bfsIgniteNext(targetCells: number[], outputCells: number[]) {
+        outputCells.length = 0;
+        const grid = this.cellGrid;
+        const cellNumX = this.cellNumX;
+        const cellNumY = this.cellNumY;
+        for (let i = 0; i < targetCells.length; i += 2) {
+            const cellX = targetCells[i];
+            const cellY = targetCells[i + 1];
+            for (let d = 0; d < 4; d++) {
+                const searchingX = cellX + DIRECTION_X[d];
+                const searchingY = cellY + DIRECTION_Y[d];
+                if (searchingX < 0 || searchingX >= cellNumX || searchingY < 0 || searchingY >= cellNumY) {
                     continue;
                 }
-                //判断是否为存活
-                let searchingIndex = this.getCellIndex(searchingX, searchingY);
-                if ((this.cellGrid[searchingIndex] & 0b00000001) == 1) {
-                    outputCells.push([searchingX, searchingY]);//加入下一轮搜索
-                    this.cellGrid[searchingIndex] = 0b00000010;//设置为燃烧状态
+                const searchingIndex = searchingY * cellNumX + searchingX;
+                if ((grid[searchingIndex] & 0b00000001) === 1) {
+                    outputCells.push(searchingX, searchingY);
+                    grid[searchingIndex] = 0b00000010;
                 }
             }
         }
     }
 
-    //细胞网格的getter
+    /**
+     * 从当前队列开始推进若干层火灾，并统计本轮新点燃的细胞数。
+     */
+    private spread(layers: number) {
+        for (let i = 0; i < layers; i++) {
+            this.statisticsTemp += this.bfsSearchCells.length >> 1;
+            this.bfsIgniteNext(this.bfsSearchCells, this.bfsOutputCells);
+            const temp = this.bfsSearchCells;
+            this.bfsSearchCells = this.bfsOutputCells;
+            this.bfsOutputCells = temp;
+            if (this.bfsSearchCells.length === 0) {
+                break;
+            }
+        }
+    }
+
+    /**
+     * 瞬间蔓延：一直推进到没有新的细胞被点燃。
+     * 返回本次火灾的燃烧细胞总数（含火种）。
+     */
+    private spreadAll() {
+        let burned = 0;
+        while (this.bfsSearchCells.length > 0) {
+            burned += this.bfsSearchCells.length >> 1;
+            this.bfsIgniteNext(this.bfsSearchCells, this.bfsOutputCells);
+            const temp = this.bfsSearchCells;
+            this.bfsSearchCells = this.bfsOutputCells;
+            this.bfsOutputCells = temp;
+        }
+        return burned;
+    }
+
+    private recordFire(size: number) {
+        if (size <= 0) {
+            return;
+        }
+        const current = this.statistics.data.get(size) ?? 0;
+        this.statistics.data.set(size, current + 1);
+        this.statistics.version++;
+    }
+
+    /**
+     * 把排队中的火种标记为燃烧状态。
+     */
+    private markIgnition(x: number, y: number) {
+        const index = this.getCellIndex(x, y);
+        this.cellGrid[index] = 0b00000010;
+        this.bfsSearchCells.push(x, y);
+        this.isInFire = true;
+    }
+
     getCellGrid() {
         return this.cellGrid;
     }
 
-    //火灾统计信息
+    getCellNumX() {
+        return this.cellNumX;
+    }
+
+    getCellNumY() {
+        return this.cellNumY;
+    }
+
     getFireStatistics() {
-        return this.fireStatistics;
+        return this.statistics;
     }
 
     setPRevive(value: number) {
-        this.pRevive = value;
+        this.pRevive = Math.max(0, value);
     }
 
     setPIgnite(value: number) {
-        this.pIgnite = value;
+        this.pIgnite = Math.max(0, value);
     }
 
     setFireSpreadSpeed(value: number) {
-        this.fireSpreadSpeed = value;
+        this.fireSpreadSpeed = Math.max(1, Math.floor(value));
     }
 
     setBurnStatusTime(value: number) {
-        this.burnStatusTime = value;
+        this.burnStatusTime = Math.max(1, Math.floor(value));
     }
 
-    // setSkipSpread(value:boolean){
-    //     this.isSkipSpread = value;
-    // }
+    setSkipSpread(value: boolean) {
+        this.isSkipSpread = value;
+    }
+
+    clearStatistics() {
+        this.statistics.data.clear();
+        this.statistics.version++;
+    }
+
+    /**
+     * 鼠标点火：把圆形区域内的存活细胞设为燃烧状态，返回点燃数量。
+     */
+    igniteAt(cellX: number, cellY: number, radius = 2) {
+        const minX = Math.max(0, Math.floor(cellX - radius));
+        const maxX = Math.min(this.cellNumX - 1, Math.ceil(cellX + radius));
+        const minY = Math.max(0, Math.floor(cellY - radius));
+        const maxY = Math.min(this.cellNumY - 1, Math.ceil(cellY + radius));
+        const radiusSquared = radius * radius;
+        let ignited = 0;
+        for (let y = minY; y <= maxY; y++) {
+            const dy = y - cellY;
+            for (let x = minX; x <= maxX; x++) {
+                const dx = x - cellX;
+                if (dx * dx + dy * dy > radiusSquared) {
+                    continue;
+                }
+                const index = this.getCellIndex(x, y);
+                if ((this.cellGrid[index] & 0b00000001) === 1) {
+                    this.markIgnition(x, y);
+                    ignited++;
+                }
+            }
+        }
+        return ignited;
+    }
 
     tick() {
-        // console.log(this._cellGrid)
-        //火灾
-        fire:
-        {
-            if (this.isInFire == true) {
-
-                //遍历所有细胞，推进燃烧阶段；没有细胞可推进时退出火灾状态
-                if (this.burnTimer == 0) {
-                    let counter = 0;
-                    for (let cellIndex in this.cellGrid) {
-                        if ((this.cellGrid[cellIndex] >> 1) >= 1) {
-                            counter++;
-                            this.cellGrid[cellIndex] = this.cellGrid[cellIndex] + 0b10;//燃烧状态是第2、3位，因此推进状态要+2（0b10）
-                            if ((this.cellGrid[cellIndex] >> 1) > 3) {
-                                this.cellGrid[cellIndex] = this.cellGrid[cellIndex] & 0b00000001;//清除（设为0）燃烧状态
-                            }
-                        }
-                    }
-                    if (counter == 0) {
-                        this.isInFire = false;
-                        this.burnTimer = 0;
-                        if (this.statisticsTemp > 0) {
-                            const fireCounter = this.fireStatistics.data.get(this.statisticsTemp) ?? 0;
-                            this.fireStatistics.data.set(this.statisticsTemp, fireCounter + 1);
-                            this.fireStatistics.version++;
-                            this.statisticsTemp = 0;
-                        }
-                        break fire;
+        if (this.isInFire) {
+            if (this.burnTimer === 0) {
+                // 推进所有燃烧阶段的细胞
+                let counter = 0;
+                const grid = this.cellGrid;
+                for (let i = 0; i < grid.length; i++) {
+                    const state = grid[i];
+                    if ((state >> 1) >= 1) {
+                        counter++;
+                        const next = state + 0b10;
+                        grid[i] = (next >> 1) > 3 ? (next & 0b00000001) : next;
                     }
                 }
+
+                if (counter === 0) {
+                    // 火焰熄灭，记录一次渐进式火灾
+                    this.isInFire = false;
+                    this.burnTimer = 0;
+                    this.recordFire(this.statisticsTemp);
+                    this.statisticsTemp = 0;
+                } else {
+                    this.burnTimer++;
+                    if (this.burnTimer >= this.burnStatusTime) {
+                        this.burnTimer = 0;
+                    }
+                    if (!this.isSkipSpread) {
+                        this.spread(this.fireSpreadSpeed);
+                        return;
+                    }
+                }
+            } else {
                 this.burnTimer++;
                 if (this.burnTimer >= this.burnStatusTime) {
                     this.burnTimer = 0;
                 }
-
-                //蔓延火灾，只在未选择跳过火灾传播过程时执行
                 if (!this.isSkipSpread) {
-                    for (let i = 0; i < this.fireSpreadSpeed; i++) {
-                        this.statisticsTemp = this.statisticsTemp + this.bfsSearchCells.length;
-                        this.bfsIgniteNext(this.bfsSearchCells, this.bfsOutputCells);//火灾蔓延至下一批细胞，输出下一帧待搜索细胞
-                        //交换输入和输出
-                        let temp = this.bfsSearchCells;
-                        this.bfsSearchCells = this.bfsOutputCells;
-                        this.bfsOutputCells = temp;
-                        if (this.bfsSearchCells.length == 0) {
-                            break;
-                        }
-                    }
-                }
-
-                //不跳过火灾传播过程时不再执行生长和点火
-                if (!this.isSkipSpread) {
+                    this.spread(this.fireSpreadSpeed);
                     return;
                 }
             }
         }
 
-        //随机生长
-        for (let index in this.cellGrid) {
-            if (((this.cellGrid[index] & 0b00000001) == 0) && (Math.random() < this.pRevive)) {
-                this.cellGrid[index] = (1 | (this.cellGrid[index] & 0b00000110));
-            }
-        }
-        //随机点火
-        for (let x = 0; x < this.cellNumX; x++) {
-            for (let y = 0; y < this.cellNumY; y++) {
-                let cellIndex = this.getCellIndex(x, y);
-                if (((this.cellGrid[cellIndex] & 0b00000001) == 1) && (Math.random() < this.pIgnite)) {
-                    this.cellGrid[cellIndex] = 0b00000010;//起火点设置为燃烧状态
-                    this.bfsSearchCells.push([x, y]);//起火点加入搜索数组
-                    this.isInFire = true;//进入火灾蔓延状态
+        // 随机生长 + 随机点火合并为一次遍历，降低每帧开销
+        const grid = this.cellGrid;
+        const pRevive = this.pRevive;
+        const pIgnite = this.pIgnite;
+        for (let index = 0; index < grid.length; index++) {
+            const state = grid[index];
+            if ((state & 0b00000001) === 0) {
+                if (pRevive > 0 && Math.random() < pRevive) {
+                    grid[index] = state | 0b00000001;
+                    // 刚长出的细胞也有可能立刻被闪电点燃
+                    if (pIgnite > 0 && Math.random() < pIgnite) {
+                        const x = index % this.cellNumX;
+                        const y = (index - x) / this.cellNumX;
+                        this.markIgnition(x, y);
+                    }
                 }
+            } else if (pIgnite > 0 && Math.random() < pIgnite) {
+                const x = index % this.cellNumX;
+                const y = (index - x) / this.cellNumX;
+                this.markIgnition(x, y);
             }
         }
+
         if (this.isSkipSpread) {
-            let statisticsTemp = 0;
-            while (this.bfsSearchCells.length > 0) {
-                statisticsTemp = statisticsTemp + this.bfsSearchCells.length;
-                this.bfsIgniteNext(this.bfsSearchCells, this.bfsOutputCells);//火灾蔓延至下一批细胞，输出下一帧待搜索细胞
-                //交换输入和输出
-                let temp = this.bfsSearchCells;
-                this.bfsSearchCells = this.bfsOutputCells;
-                this.bfsOutputCells = temp;
-            }
-            if (statisticsTemp > 0) {
-                const fireCounter = this.fireStatistics.data.get(statisticsTemp) ?? 0;
-                this.fireStatistics.data.set(statisticsTemp, fireCounter + 1);
-                this.fireStatistics.version++;
-            }
+            const burned = this.spreadAll();
+            this.recordFire(burned);
         }
     }
-}
-export interface FireStatistics {
-    version: number;
-    data: Map<number, number>;
 }

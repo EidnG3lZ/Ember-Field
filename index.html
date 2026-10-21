@@ -1,159 +1,62 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN" data-theme="neon">
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ember Field</title>
     <link rel="stylesheet" type="text/css" href="css/font.css">
-    <style type="text/css">
-        html,
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            /* 防止滚动条 */
-            width: 100%;
-            height: 100%;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        #canvas_1 {
-            display: block;
-            width: 100vw;
-            height: 100vh;
-        }
-
-        #subassembly-table {
-            /* border-style: solid;
-            border-width: 2px;
-            border-color: rgb(219, 219, 219); */
-            outline: rgb(219, 219, 219) 2px solid;
-            background-color: rgba(34, 34, 34, 0.937);
-            /* background-color: rgb(237, 228, 162); */
-            display: block;
-            position: absolute;
-            left: 50%;
-            bottom: 0%;
-            transform: translate(-50%, 100%);
-            transition: transform 0.3s ease;
-        }
-
-        #subassembly-table.show {
-            transform: translate(-50%, 0);
-        }
-
-        #btn1 {
-            display: block;
-            position: absolute;
-            background-color: rgba(34, 34, 34, 0.937);
-            font-size: 15px;
-            color: rgb(219, 219, 219);
-            border-color: rgb(219, 219, 219);
-            border-style: solid;
-            border-width: 2px;
-            right: -2px;
-            top: 0;
-            transform: translate(0, -100%);
-        }
-
-        .form_1 {
-            display: block;
-            position: absolute;
-            left: 0px;
-            top: 0px;
-        }
-
-        #clock {
-            position: absolute;
-            left: 50%;
-            top: 5%;
-            transform: translate(-50%, 0);
-            /* width: 200px;
-            height: 100px; */
-
-            width: 400px;
-            height: 200px;
-            display: flex;
-            flex-direction: column;
-            /* background-color: #f0f0f0; */
-        }
-
-        #week {
-            /* display: block;
-            width: 50%;
-            height: 20%;
-
-            background-color: brown; */
-            width: 50%;
-            /* 400px 的一半 */
-            height: 20%;
-            /* 200px 的 20% */
-            background-color: #017cff;
-        }
-
-        #time {
-            /* display: block;
-            width: 100%;
-            height: 60%;
-
-            background-color: blue; */
-
-            width: 100%;
-            height: 60%;
-            /* 200px 的 60% */
-            background-color: #62b700;
-
-        }
-
-        #date_and_decoration {
-            width: 100%;
-            height: 20%;
-            /* 200px 的 20% */
-            display: flex;
-            background-color: #ffe0b2;
-        }
-
-        #decoration,
-        #date {
-            flex: 1;
-            /* 各占 50% 宽度 */
-            height: 100%;
-        }
-
-        #decoration {
-            background-color: rgb(235, 235, 0);
-        }
-
-        #date {
-            background-color: rgb(255, 0, 0);
-        }
-    </style>
+    <link rel="stylesheet" type="text/css" href="css/style.css">
 </head>
 
 <body>
-    <canvas id="canvas_1">浏览器不支持canvas</canvas>
-    <div id="subassembly-table">
-        <div id="statistics_div">
-            <canvas id="canvas_2" class="form_1"></canvas>
-            <canvas id="canvas_3" class="form_1"></canvas>
-        </div>
-        <!-- test -->
-        <input type="range" id="scaleSlider" min="0.5" max="1.5" step="0.05" value="1" style="display:block">
-        <button id="btn1">▲</button>
-    </div>
-    <div id="clock">
-        <div id="week"></div>
-        <div id="time"></div>
-        <div id="date_and_decoration">
-            <div id="decoration"></div>
-            <div id="date"></div>
-        </div>
-    </div>
+    <canvas id="sim-canvas" aria-hidden="true"></canvas>
+    <div id="atmosphere" aria-hidden="true"></div>
+    <div id="fx-layer" aria-hidden="true"></div>
 
+    <header id="clock" class="clock">
+        <div class="clock-time">
+            <span class="clock-hm" data-clock="hm">--:--</span>
+            <span class="clock-sec" data-clock="sec">--</span>
+        </div>
+        <div class="clock-meta">
+            <span data-clock="date"></span>
+            <span class="clock-dot" aria-hidden="true"></span>
+            <span data-clock="weekday"></span>
+        </div>
+        <div class="clock-bar" aria-hidden="true"><i data-clock="bar"></i></div>
+    </header>
+
+    <section id="panel" class="panel" aria-label="模拟统计与控制">
+        <button id="panel-toggle" class="panel-toggle" type="button" aria-expanded="false" aria-controls="panel-body">
+            <span class="toggle-dot" aria-hidden="true"></span>
+            <span>统计面板</span>
+            <span class="toggle-chev" aria-hidden="true">▲</span>
+        </button>
+        <div id="panel-body" class="panel-body">
+            <div class="panel-main">
+                <div class="panel-head">
+                    <div class="panel-title">
+                        <h1>火灾规模分布</h1>
+                        <p>双对数坐标 · 幂律分布拟合</p>
+                    </div>
+                    <span class="panel-tag">LOG–LOG</span>
+                </div>
+                <div id="chart-wrap" class="chart-wrap">
+                    <canvas id="stats-canvas"></canvas>
+                    <div id="chart-empty" class="chart-empty">
+                        <span>等待第一次火灾</span>
+                        <small>点击画面可以立即点火</small>
+                    </div>
+                </div>
+                <div class="panel-foot">
+                    <div id="stats-chips" class="chips"></div>
+                    <p class="chart-hint">横轴：燃烧细胞数 · 纵轴：发生频次 · 拟合区间 x ≥ 4</p>
+                </div>
+            </div>
+            <aside id="controls" class="panel-side" aria-label="参数控制"></aside>
+        </div>
+    </section>
 
     <script src="js/main.js"></script>
 </body>

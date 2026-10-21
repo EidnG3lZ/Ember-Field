@@ -1,175 +1,398 @@
+import { Clock } from "./Clock";
+import { ControlPanel } from "./ControlPanel";
+import { createFireStatistics, FireSimulate, FireStatistics } from "./FireSimulate";
+import { formatNumber, loadSettings, normalizeSettings, saveSettings, Settings } from "./settings";
 import { SimulatorDrawer } from "./SimulatorDrawer";
-import { FireSimulate } from "./FireSimulate";
-import { StatisticsDrawer } from "./StatisticsDrawer";
+import { PowerLawFit, StatisticsDrawer } from "./StatisticsDrawer";
+import { applyTheme, isThemeId, THEMES, ThemeId } from "./theme";
 
-const simulatorCanvas = document.getElementById("canvas_1") as HTMLCanvasElement;
-const statisticsDiv = document.getElementById("statistics_div") as HTMLDivElement;
-const statisticsForm = document.getElementById("canvas_2") as HTMLCanvasElement;
-const statisticsPoint = document.getElementById("canvas_3") as HTMLCanvasElement;
-const subassemblyTable = document.getElementById("subassembly-table") as HTMLDivElement;
-const btn = document.getElementById("btn1") as HTMLButtonElement;
+const simCanvas = document.getElementById("sim-canvas") as HTMLCanvasElement;
+const statsCanvas = document.getElementById("stats-canvas") as HTMLCanvasElement;
+const statsChips = document.getElementById("stats-chips") as HTMLElement;
+const chartEmpty = document.getElementById("chart-empty") as HTMLElement;
+const clockRoot = document.getElementById("clock") as HTMLElement;
+const panelRoot = document.getElementById("panel") as HTMLElement;
+const panelToggle = document.getElementById("panel-toggle") as HTMLButtonElement;
+const toggleChevron = panelToggle.querySelector(".toggle-chev") as HTMLElement | null;
+const controlsRoot = document.getElementById("controls") as HTMLElement;
+const fxLayer = document.getElementById("fx-layer") as HTMLElement;
 
-//test
-const slider = document.getElementById('scaleSlider') as HTMLInputElement;
-slider.addEventListener('input', () => {
-    statisticsScale = parseFloat(slider.value);
-    resizeStatistics(statisticsScale);
-});
+let settings: Settings = loadSettings();
 
-btn.addEventListener("click",()=>{
-    const result = subassemblyTable.classList.toggle("show");
-    if(result){
-        btn.innerHTML = "▼";
-    }else{
-        btn.innerHTML = "▲";
-    }
-});
+// 用于本地预览 / 截图的轻量覆盖，不影响 Wallpaper Engine 中的正常运行
+const searchParams = new URLSearchParams(location.search);
+const themeOverride = searchParams.get("theme");
+if (isThemeId(themeOverride)) {
+    settings.theme = themeOverride;
+}
+const forcePanelOpen = searchParams.get("panel") === "1" || location.hash === "#panel";
 
-const originalStatisticsSize = {
-    x: 400,
-    y: 400
-}//统计图表图像原始分辨率
+applyTheme(settings.theme);
+document.documentElement.style.setProperty("--chart-scale", String(settings.chartScale));
 
-//可配置数据
-let cellSize = 3;//细胞大小
-let tickTime = 15;//每帧持续时间，单位毫秒
-let pRevive = 0.001;//生长概率
-let pIgnite = 0.000001;//起火概率
-let fireSpreadSpeed = 5;//每帧火灾蔓延距离
-let burnStatusTime = 5;//燃烧状态推进耗时
-let isSkipSpread = true;//是否跳过蔓延
-let deadColor = "#292929";
-let aliveColor = "#1ebf0c";
-let burnColor1 = "#f1c40f";
-let burnColor2 = "#e67e22";
-let burnColor3 = "#e74c3c";
-let formColor: string = "#ffffffff";
-let textColor: string = "#ffffffff";
-let pointColor: string = "#dca91dff";
-let pointSize: number = 10;
-let statisticsScale = 1;
-let font: string = "10px orbitronmedium"
-
-let isFontReady: boolean = false;
-
-let cellNumberX: number;
-let cellNumberY: number;
-
+const statistics: FireStatistics = createFireStatistics();
 let fireSimulate: FireSimulate;
 let simulatorDrawer: SimulatorDrawer;
 let statisticsDrawer: StatisticsDrawer;
+let clock: Clock;
+let controlPanel: ControlPanel;
+let cellNumberX = 1;
+let cellNumberY = 1;
+let lastIgnitionRipple = 0;
 
-// let statistics: Map<number, number>;
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-//修改字体时
-function changeFont(newFont: string) {
-    font = newFont;
-    isFontReady = false;
-    loadFontAndDrawForm();
+function themeDefinition() {
+    return THEMES[settings.theme];
 }
 
-function loadFontAndDrawForm() {
-    document.fonts.load(font).then(
-        () => {
-            isFontReady = true;
-            statisticsDrawer.drawForm(true);
+function buildSimulation(preserveGrid = false) {
+    // 使用画布的 CSS 尺寸而不是 window.innerWidth/Height，
+    // 避免浏览器窗口尺寸变化时画布与视口不同步而留下黑边。
+    const width = Math.max(1, simCanvas.clientWidth || window.innerWidth);
+    const height = Math.max(1, simCanvas.clientHeight || window.innerHeight);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    simCanvas.width = Math.round(width * dpr);
+    simCanvas.height = Math.round(height * dpr);
+    const previousGrid = preserveGrid && fireSimulate ? fireSimulate.getCellGrid() : null;
+    const previousCellNumX = cellNumberX;
+    const previousCellNumY = cellNumberY;
+    cellNumberX = Math.ceil(width / settings.cellSize);
+    cellNumberY = Math.ceil(height / settings.cellSize);
+
+    fireSimulate = new FireSimulate({
+        cellNumX: cellNumberX,
+        cellNumY: cellNumberY,
+        pRevive: settings.pRevive,
+        pIgnite: settings.pIgnite,
+        fireSpreadSpeed: settings.fireSpreadSpeed,
+        burnStatusTime: settings.burnStatusTime,
+        isSkipSpread: settings.isSkipSpread,
+        statistics
+    });
+
+    // 窗口尺寸变化时尽量保留已有细胞的生/死状态，避免整片森林被清空
+    if (previousGrid) {
+        const grid = fireSimulate.getCellGrid();
+        const copyWidth = Math.min(previousCellNumX, cellNumberX);
+        const copyHeight = Math.min(previousCellNumY, cellNumberY);
+        for (let y = 0; y < copyHeight; y++) {
+            const sourceOffset = y * previousCellNumX;
+            const targetOffset = y * cellNumberX;
+            for (let x = 0; x < copyWidth; x++) {
+                grid[targetOffset + x] = previousGrid[sourceOffset + x] & 0b00000001;
+            }
         }
-    )
-}
+    }
 
-function resizeSimulate() {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    simulatorCanvas.width = width;
-    simulatorCanvas.height = height;
-    cellNumberX = Math.ceil(width / cellSize);
-    cellNumberY = Math.ceil(height / cellSize);
-
-    fireSimulate = new FireSimulate(
-        cellNumberX,
-        cellNumberY,
-        pRevive,
-        pIgnite,
-        fireSpreadSpeed,
-        burnStatusTime,
-        isSkipSpread
-    );
+    const simulatorContext = simCanvas.getContext("2d");
+    simulatorContext?.setTransform(dpr, 0, 0, dpr, 0, 0);
     simulatorDrawer = new SimulatorDrawer(
-        simulatorCanvas.getContext("2d"),
-        cellSize,
+        simulatorContext,
+        settings.cellSize,
         cellNumberX,
         cellNumberY,
         fireSimulate,
-        deadColor,
-        aliveColor,
-        burnColor1,
-        burnColor2,
-        burnColor3
+        themeDefinition().sim
     );
-    statisticsDrawer = new StatisticsDrawer(
-        statisticsForm.getContext("2d"),
-        statisticsPoint.getContext("2d"),
-        originalStatisticsSize.x,
-        originalStatisticsSize.y,
-        fireSimulate,
-        40,
-        pointSize,
-        statisticsScale,
-        formColor,
-        textColor,
-        pointColor,
-        font
-    );
-    statisticsDrawer.clear();
-    statisticsDrawer.drawForm(false);
-    loadFontAndDrawForm();
-    //test
-    // let ctx = canvas1.getContext('2d');
-    // ctx.fillRect(0, 0, 32, 32);
-    // ctx.fillRect(width-64,height-64,32,32);
-    // statistics = fireSimulate.getFireStatistics();
 }
 
-function resizeStatistics(scale: number) {
-    const displayWidth = Math.round(originalStatisticsSize.x * scale);
-    const displayHeight = Math.round(originalStatisticsSize.y * scale);
-    statisticsForm.width = displayWidth;
-    statisticsForm.height = displayHeight;
-    statisticsPoint.width = displayWidth;
-    statisticsPoint.height = displayHeight;
-    statisticsDiv.style.width = `${displayWidth}px`;
-    statisticsDiv.style.height = `${displayHeight}px`
-    statisticsDrawer.applyScale(scale);
+function updateStatisticsChips(fit: PowerLawFit) {
+    statsChips.innerHTML = "";
+    if (fit.totalFires === 0) {
+        const chip = document.createElement("span");
+        chip.className = "chip chip-muted";
+        chip.textContent = "等待数据";
+        statsChips.appendChild(chip);
+        return;
+    }
+
+    const addChip = (text: string, className = "", title = "") => {
+        const chip = document.createElement("span");
+        chip.className = "chip " + className;
+        chip.textContent = text;
+        if (title) {
+            chip.title = title;
+        }
+        statsChips.appendChild(chip);
+    };
+
+    const alphaText = fit.alpha === null ? "α —" : "α " + fit.alpha.toFixed(2);
+    addChip(alphaText, "chip-accent", "幂律指数 P(s) ∝ s^-α；拟合区间 x ≥ " + fit.fitFrom + "，" + fit.bins + " 个对数分箱");
+    addChip("R² " + (fit.r2 === null ? "—" : fit.r2.toFixed(2)), "", "加权拟合优度");
+    addChip("样本 " + formatNumber(fit.totalFires));
+    addChip("最大 " + formatNumber(fit.maxSize));
 }
 
-//初始化
-(function setup() {
-    resizeSimulate();
-    window.addEventListener('resize', resizeSimulate);
-    resizeStatistics(1);
-})();
-
-//循环
-function loop() {
-    fireSimulate.tick();
-    simulatorDrawer.draw();
-    // console.log(statistics);
-    statisticsDrawer.draw();
+function applyThemeChange(theme: ThemeId) {
+    applyTheme(theme);
+    if (simulatorDrawer) {
+        simulatorDrawer.setPalette(THEMES[theme].sim);
+    }
+    if (statisticsDrawer) {
+        statisticsDrawer.setPalette(THEMES[theme].chart);
+    }
 }
 
-function sleep(ms: number) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+interface ApplyOptions {
+    syncPanel?: boolean;
+    persist?: boolean;
 }
+
+function applySettings(patch: Partial<Settings>, options: ApplyOptions = {}) {
+    const previous = settings;
+    settings = normalizeSettings({ ...settings, ...patch });
+
+    if (settings.theme !== previous.theme) {
+        applyThemeChange(settings.theme);
+    }
+    if (settings.showClock !== previous.showClock && clock) {
+        clock.setVisible(settings.showClock);
+    }
+    if (settings.chartScale !== previous.chartScale) {
+        document.documentElement.style.setProperty("--chart-scale", String(settings.chartScale));
+    }
+    if (settings.cellSize !== previous.cellSize) {
+        // 细胞尺寸改变后，火灾规模的绝对数值不再可比，重置统计
+        statistics.data.clear();
+        statistics.version++;
+        buildSimulation();
+    } else if (settings.pRevive !== previous.pRevive && fireSimulate) {
+        fireSimulate.setPRevive(settings.pRevive);
+    }
+    if (settings.pIgnite !== previous.pIgnite && fireSimulate) {
+        fireSimulate.setPIgnite(settings.pIgnite);
+    }
+    if (settings.fireSpreadSpeed !== previous.fireSpreadSpeed && fireSimulate) {
+        fireSimulate.setFireSpreadSpeed(settings.fireSpreadSpeed);
+    }
+    if (settings.burnStatusTime !== previous.burnStatusTime && fireSimulate) {
+        fireSimulate.setBurnStatusTime(settings.burnStatusTime);
+    }
+    if (settings.isSkipSpread !== previous.isSkipSpread && fireSimulate) {
+        fireSimulate.setSkipSpread(settings.isSkipSpread);
+    }
+    if (options.syncPanel !== false && controlPanel) {
+        controlPanel.setSettings(settings);
+    }
+    if (options.persist !== false) {
+        saveSettings(settings);
+    }
+}
+
+function setPanelOpen(open: boolean) {
+    panelRoot.classList.toggle("show", open);
+    document.body.classList.toggle("panel-open", open);
+    panelToggle.setAttribute("aria-expanded", String(open));
+    if (toggleChevron) {
+        toggleChevron.textContent = open ? "▼" : "▲";
+    }
+}
+
+function spawnIgnitionRipple(clientX: number, clientY: number) {
+    const now = performance.now();
+    if (now - lastIgnitionRipple < 90) {
+        return;
+    }
+    lastIgnitionRipple = now;
+    const ripple = document.createElement("i");
+    ripple.className = "ignite-ripple";
+    ripple.style.left = clientX + "px";
+    ripple.style.top = clientY + "px";
+    fxLayer.appendChild(ripple);
+    window.setTimeout(() => ripple.remove(), 720);
+}
+
+let isPointerDown = false;
+let lastIgniteTime = 0;
+
+function igniteFromPointer(event: PointerEvent) {
+    if (!settings.mouseIgnite || !fireSimulate) {
+        return;
+    }
+    const now = performance.now();
+    if (now - lastIgniteTime < 45) {
+        return;
+    }
+    lastIgniteTime = now;
+    const rect = simCanvas.getBoundingClientRect();
+    const cellX = (event.clientX - rect.left) / settings.cellSize;
+    const cellY = (event.clientY - rect.top) / settings.cellSize;
+    const radius = Math.max(2, Math.round(5 / settings.cellSize));
+    fireSimulate.igniteAt(cellX, cellY, radius);
+    spawnIgnitionRipple(event.clientX, event.clientY);
+}
+
+simCanvas.addEventListener("pointerdown", (event) => {
+    if (!settings.mouseIgnite) {
+        return;
+    }
+    isPointerDown = true;
+    simCanvas.setPointerCapture?.(event.pointerId);
+    igniteFromPointer(event);
+});
+simCanvas.addEventListener("pointermove", (event) => {
+    if (isPointerDown) {
+        igniteFromPointer(event);
+    }
+});
+simCanvas.addEventListener("pointerup", () => {
+    isPointerDown = false;
+});
+simCanvas.addEventListener("pointercancel", () => {
+    isPointerDown = false;
+});
+
+panelToggle.addEventListener("click", () => {
+    setPanelOpen(!panelRoot.classList.contains("show"));
+});
+
+window.addEventListener("keydown", (event) => {
+    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+    }
+    if (event.key === "t" || event.key === "T") {
+        const next: ThemeId = settings.theme === "neon" ? "terminal" : "neon";
+        applySettings({ theme: next });
+    } else if (event.key === "p" || event.key === "P") {
+        setPanelOpen(!panelRoot.classList.contains("show"));
+    }
+});
+
+function handleResize() {
+    if (!fireSimulate) {
+        return;
+    }
+    buildSimulation(true);
+}
+
+let resizeTimer = 0;
+const scheduleResize = () => {
+    window.clearTimeout(resizeTimer);
+    resizeTimer = window.setTimeout(handleResize, 120);
+};
+const simulationResizeObserver = new ResizeObserver(scheduleResize);
+simulationResizeObserver.observe(simCanvas);
+window.addEventListener("resize", scheduleResize);
+
+// —— 初始化 ——
+clock = new Clock(clockRoot);
+clock.setVisible(settings.showClock);
+
+controlPanel = new ControlPanel({
+    container: controlsRoot,
+    settings,
+    onChange: (patch) => applySettings(patch, { syncPanel: patch.theme !== undefined }),
+    onResetStatistics: () => {
+        statistics.data.clear();
+        statistics.version++;
+        statisticsDrawer?.requestRender();
+    },
+    onRebuild: () => {
+        buildSimulation();
+    }
+});
+
+statisticsDrawer = new StatisticsDrawer(
+    statsCanvas,
+    statistics,
+    themeDefinition().chart,
+    updateStatisticsChips,
+    chartEmpty
+);
+
+buildSimulation();
+updateStatisticsChips({
+    totalFires: 0,
+    maxSize: 0,
+    maxFrequency: 0,
+    distinctSizes: 0,
+    alpha: null,
+    r2: null,
+    fitFrom: 0,
+    fitTo: 0,
+    bins: 0
+});
+setPanelOpen(forcePanelOpen);
+
+document.fonts.ready.then(() => {
+    statisticsDrawer?.requestRender();
+});
+
+// 主循环：读取实时设置，因此帧间隔可以动态调整
 (async function doTickLoop() {
     while (true) {
-        const startTime = Date.now();
-        loop();
-        const usedTime = Date.now() - startTime;
-        // console.log(`used time:${usedTime}`)
-        const sleepTime = tickTime - usedTime;
-        if (sleepTime <= 0) {
+        if (document.hidden) {
+            await sleep(200);
             continue;
         }
+        const startTime = performance.now();
+        try {
+            fireSimulate.tick();
+            simulatorDrawer.draw();
+            statisticsDrawer.draw();
+        } catch (error) {
+            // 避免一次偶发异常让壁纸永久停帧
+            console.error(error);
+            await sleep(120);
+            continue;
+        }
+        const usedTime = performance.now() - startTime;
+        const sleepTime = Math.max(2, settings.tickTime - usedTime);
         await sleep(sleepTime);
     }
 })();
+
+// Wallpaper Engine 用户属性（在浏览器中不存在，监听器会被忽略）
+(function setupWallpaperEngineProperties() {
+    const apply = (properties: Record<string, { value: unknown }>) => {
+        const patch: Partial<Settings> = {};
+        if (isThemeId(properties.theme?.value)) {
+            patch.theme = properties.theme.value;
+        }
+        if (typeof properties.show_clock?.value === "boolean") {
+            patch.showClock = properties.show_clock.value;
+        }
+        if (typeof properties.mouse_ignite?.value === "boolean") {
+            patch.mouseIgnite = properties.mouse_ignite.value;
+        }
+        if (typeof properties.skip_spread?.value === "boolean") {
+            patch.isSkipSpread = properties.skip_spread.value;
+        }
+        if (typeof properties.p_revive?.value === "number" && Number.isFinite(properties.p_revive.value)) {
+            patch.pRevive = properties.p_revive.value;
+        }
+        if (typeof properties.p_ignite?.value === "number" && Number.isFinite(properties.p_ignite.value)) {
+            patch.pIgnite = properties.p_ignite.value;
+        }
+        const cellSize = properties.cell_size?.value;
+        if (typeof cellSize === "number" && Number.isFinite(cellSize)) {
+            patch.cellSize = cellSize;
+        }
+        if (Object.keys(patch).length > 0) {
+            applySettings(patch, { syncPanel: true });
+        }
+    };
+    (window as unknown as { wallpaperPropertyListener: unknown }).wallpaperPropertyListener = {
+        applyUserProperties: apply
+    };
+})();
+
+// 调试入口：仅在 ?debug=1 时暴露，便于本地检查和截图验证
+if (searchParams.get("debug") === "1") {
+    (window as unknown as { __emberField: unknown }).__emberField = {
+        getSettings: () => settings,
+        getStatistics: () => statistics,
+        applySettings: (patch: Partial<Settings>) => applySettings(patch),
+        openPanel: (open = true) => setPanelOpen(open),
+        igniteAt: (x: number, y: number, radius = 4) => fireSimulate.igniteAt(x, y, radius),
+        injectStatistics: (values: Array<[number, number]>) => {
+            statistics.data.clear();
+            for (const [size, count] of values) {
+                statistics.data.set(size, count);
+            }
+            statistics.version++;
+            statisticsDrawer.requestRender();
+        }
+    };
+}
