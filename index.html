@@ -27,12 +27,14 @@
         <div class="clock-bar" aria-hidden="true"><i data-clock="bar"></i></div>
     </header>
 
+    <button id="panel-toggle" class="panel-toggle" type="button" aria-expanded="false"
+        aria-controls="panel-body" aria-label="展开统计面板">
+        <span class="toggle-icon" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="toggle-label">统计面板</span>
+        <span class="toggle-chev" aria-hidden="true">⋁</span>
+    </button>
+
     <section id="panel" class="panel" aria-label="模拟统计与控制">
-        <button id="panel-toggle" class="panel-toggle" type="button" aria-expanded="false" aria-controls="panel-body">
-            <span class="toggle-dot" aria-hidden="true"></span>
-            <span>统计面板</span>
-            <span class="toggle-chev" aria-hidden="true">▲</span>
-        </button>
         <div id="panel-body" class="panel-body">
             <div class="panel-main">
                 <div class="panel-head">

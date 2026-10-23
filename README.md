@@ -6,7 +6,7 @@
 
 ## 功能
 
-- **火灾模拟**：生长、随机点火、逐帧蔓延 / 瞬间蔓延、三段燃烧动画，参数均可实时调整。
+- **火灾模拟**：生长、随机点火、逐帧平滑蔓延 / 瞬间蔓延、逐细胞独立燃烧动画，参数均可实时调整。
 - **本地时钟**：顶部大号数字时钟，包含时:分、低干扰秒数、分钟进度条、中文日期与星期。每秒平滑更新。
 - **统计面板**：双对数散点图 + 对数分箱幂律拟合，显示 `α`、`R²`、样本数与最大火灾规模。
 - **两套主题**：
@@ -15,16 +15,14 @@
 - **鼠标交互**：在画面上点击或拖拽即可点燃圆形区域内的存活细胞，并出现点火波纹。
 - **参数面板**：主题、生长率、起火率、蔓延速度、燃烧时长、细胞尺寸、帧间隔、瞬间蔓延、面板缩放、时钟与鼠标点火开关。
 - **状态持久化**：主题与参数保存在 `localStorage`，刷新后保持。
-- **Wallpaper Engine**：附带 `project.json`，可在编辑器中直接调整主题、时钟、细胞尺寸、生长率、起火率等属性。
+- **Wallpaper Engine**：附带 `project.json`，可在编辑器中直接调整主题、时钟、细胞尺寸、生长率、起火率、蔓延速度、燃烧时长、帧间隔、面板缩放等属性；所有滑块旁都带有可直接输入数值的输入框。
 
 ## 操作
 
 | 操作 | 说明 |
 | --- | --- |
-| 点击右下角「统计面板」 | 展开 / 收起面板 |
+| 点击右上角「统计面板」 | 展开 / 收起面板（按钮固定在右上角，不会被任务栏遮挡） |
 | 在画面点击或拖拽 | 点燃细胞 |
-| `T` | 切换霓虹 / 终端主题 |
-| `P` | 展开 / 收起统计面板 |
 
 URL 调试参数：`?panel=1` 默认展开面板；`?theme=terminal` 强制终端主题；`?debug=1` 暴露 `window.__emberField` 调试接口。
 
@@ -59,8 +57,24 @@ Windows 也可以直接运行：
 ## 导入 Wallpaper Engine
 
 1. 在 Wallpaper Engine 编辑器中点击「创建壁纸」，把项目根目录的 `index.html` 拖入。
-2. 编辑器会读取同目录的 `project.json`，右侧出现主题、时钟、细胞尺寸等可调属性。
+2. 编辑器会读取同目录的 `project.json`，右侧出现主题、时钟、模拟参数等可调属性。滑块开启 `editable`，既可在右侧直接输入精确数值，也可拖动滑条。
 3. 如果修改了 TypeScript 源码，先执行 `npm run build` 生成 `js/main.js` 再导入。
+
+### WE 属性一览
+
+| WE 属性 | 控制面板对应 | 类型 / 范围 |
+| --- | --- | --- |
+| `theme` | 主题 | combo：霓虹 / 终端 |
+| `show_clock` | 显示时钟 | bool |
+| `mouse_ignite` | 鼠标点火 | bool |
+| `skip_spread` | 瞬间蔓延 | bool |
+| `cell_size` | 细胞尺寸 | slider：2–6 px |
+| `p_revive` | 生长率 | slider：1e-5–0.1 |
+| `p_ignite` | 起火率 | slider：1e-8–1e-4 |
+| `fire_spread_speed` | 蔓延速度 | slider：1–20 层/周期 |
+| `burn_status_time` | 燃烧时长 | slider：1–20 帧/段 |
+| `tick_time` | 帧间隔 | slider：8–50 ms |
+| `chart_scale` | 面板缩放 | slider：0.5–1.5 |
 
 ## 文件结构
 
@@ -77,6 +91,7 @@ ts/StatisticsDrawer.ts 双对数图表与幂律拟合
 ts/Clock.ts           时钟
 ts/ControlPanel.ts    参数面板
 ts/settings.ts        默认参数、持久化与格式化
+ts/wallpaperProperties.ts  WE 用户属性到 Settings 的映射
 ts/theme.ts           两套主题的模拟与图表调色板
 js/main.js            esbuild 构建产物
 preview.jpg           商店 / 编辑器预览图

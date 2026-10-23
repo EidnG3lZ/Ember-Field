@@ -251,10 +251,11 @@ html[data-theme="terminal"] .clock::before {
 /* ---------- 面板 ---------- */
 
 .panel {
+    --panel-bottom: clamp(64px, 7vh, 140px);
     position: fixed;
     z-index: 4;
     left: 50%;
-    bottom: 24px;
+    bottom: var(--panel-bottom);
     width: min(1120px, calc(100vw - 56px));
     background:
         radial-gradient(140% 120% at 0% 0%, rgba(var(--accent-rgb), 0.045), transparent 55%),
@@ -264,9 +265,9 @@ html[data-theme="terminal"] .clock::before {
     box-shadow: var(--panel-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.06);
     backdrop-filter: blur(28px) saturate(1.15);
     -webkit-backdrop-filter: blur(28px) saturate(1.15);
-    transform: translate(-50%, calc(100% + 24px));
+    transform: translate(-50%, calc(100% + var(--panel-bottom)));
     transition: transform 0.5s cubic-bezier(0.22, 0.8, 0.22, 1);
-    max-height: calc(100vh - 72px);
+    max-height: calc(100vh - var(--panel-bottom) - 12px);
     pointer-events: none;
 }
 
@@ -276,29 +277,30 @@ html[data-theme="terminal"] .clock::before {
 }
 
 .panel-toggle {
-    position: absolute;
-    top: 0;
-    right: 20px;
-    transform: translateY(-100%);
+    position: fixed;
+    z-index: 6;
+    top: clamp(18px, 2.4vh, 36px);
+    right: clamp(18px, 1.6vw, 36px);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 9px;
     height: 38px;
-    padding: 0 16px;
-    background: var(--panel-bg);
+    padding: 0 15px;
+    background:
+        radial-gradient(120% 140% at 0% 0%, rgba(var(--accent-rgb), 0.07), transparent 60%),
+        var(--panel-bg);
     border: 1px solid var(--border);
-    border-bottom: none;
-    border-radius: 12px 12px 0 0;
+    border-radius: 12px;
     color: var(--text-dim);
     font-family: var(--ui-font);
     font-size: 12px;
     letter-spacing: 0.08em;
     cursor: pointer;
     pointer-events: auto;
-    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.28);
+    box-shadow: 0 14px 38px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
-    transition: color 0.2s ease, border-color 0.2s ease;
+    transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 
 .panel-toggle:hover {
@@ -306,18 +308,49 @@ html[data-theme="terminal"] .clock::before {
     border-color: var(--border-strong);
 }
 
-.toggle-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--accent);
-    box-shadow: 0 0 10px var(--glow);
-    animation: pulse 2.8s ease-in-out infinite;
+.panel-toggle.is-open {
+    color: var(--accent);
+    border-color: rgba(var(--accent-rgb), 0.34);
+    background:
+        radial-gradient(120% 140% at 0% 0%, rgba(var(--accent-rgb), 0.16), transparent 65%),
+        var(--panel-bg);
+}
+
+.toggle-icon {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 12px;
+}
+
+.toggle-icon i {
+    display: block;
+    width: 2px;
+    border-radius: 1px;
+    background: currentColor;
+    opacity: 0.85;
+}
+
+.toggle-icon i:nth-child(1) {
+    height: 5px;
+}
+
+.toggle-icon i:nth-child(2) {
+    height: 8px;
+}
+
+.toggle-icon i:nth-child(3) {
+    height: 12px;
 }
 
 .toggle-chev {
     font-size: 9px;
     opacity: 0.7;
+    transition: transform 0.25s ease;
+}
+
+.panel-toggle.is-open .toggle-chev {
+    transform: rotate(180deg);
 }
 
 .panel-body {
@@ -325,7 +358,7 @@ html[data-theme="terminal"] .clock::before {
     grid-template-columns: minmax(0, 1fr) 360px;
     gap: 28px;
     padding: 20px 24px 18px;
-    max-height: calc(100vh - 112px);
+    max-height: calc(100vh - var(--panel-bottom) - 52px);
     overflow-y: auto;
     transition: opacity 0.3s ease 0.08s;
 }
@@ -800,9 +833,8 @@ html[data-theme="terminal"] .clock::before {
 
 @media (max-width: 980px) {
     .panel {
+        --panel-bottom: 56px;
         width: calc(100vw - 24px);
-        bottom: 12px;
-        transform: translate(-50%, calc(100% + 12px));
     }
 
     body.panel-open .clock {
@@ -813,7 +845,7 @@ html[data-theme="terminal"] .clock::before {
     .panel-body {
         grid-template-columns: 1fr;
         gap: 16px;
-        max-height: calc(100vh - 92px);
+        max-height: calc(100vh - var(--panel-bottom) - 40px);
         overflow-y: auto;
         padding: 18px 18px 16px;
     }
@@ -846,7 +878,13 @@ html[data-theme="terminal"] .clock::before {
     }
 
     .panel-toggle {
+        top: 14px;
         right: 12px;
+        padding: 0 12px;
+    }
+
+    .toggle-label {
+        display: none;
     }
 
     .chips {
@@ -953,6 +991,8 @@ html[data-theme="terminal"] .clock::before {
     }
 
     .panel-toggle {
+        top: 40px;
+        right: 48px;
         height: 44px;
         font-size: 14px;
     }

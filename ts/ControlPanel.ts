@@ -47,7 +47,7 @@ const SLIDERS: SliderDefinition[] = [
         min: 1,
         max: 20,
         step: 1,
-        format: (value) => value + " 层/帧"
+        format: (value) => value + " 层/周期"
     },
     {
         key: "burnStatusTime",
@@ -56,7 +56,7 @@ const SLIDERS: SliderDefinition[] = [
         min: 1,
         max: 20,
         step: 1,
-        format: (value) => value + " 帧"
+        format: (value) => value + " 帧/段"
     },
     {
         key: "cellSize",

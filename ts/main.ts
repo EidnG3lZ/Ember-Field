@@ -5,6 +5,8 @@ import { formatNumber, loadSettings, normalizeSettings, saveSettings, Settings }
 import { SimulatorDrawer } from "./SimulatorDrawer";
 import { PowerLawFit, StatisticsDrawer } from "./StatisticsDrawer";
 import { applyTheme, isThemeId, THEMES, ThemeId } from "./theme";
+import { settingsPatchFromWallpaperProperties } from "./wallpaperProperties";
+import type { WallpaperProperties } from "./wallpaperProperties";
 
 const simCanvas = document.getElementById("sim-canvas") as HTMLCanvasElement;
 const statsCanvas = document.getElementById("stats-canvas") as HTMLCanvasElement;
@@ -13,7 +15,6 @@ const chartEmpty = document.getElementById("chart-empty") as HTMLElement;
 const clockRoot = document.getElementById("clock") as HTMLElement;
 const panelRoot = document.getElementById("panel") as HTMLElement;
 const panelToggle = document.getElementById("panel-toggle") as HTMLButtonElement;
-const toggleChevron = panelToggle.querySelector(".toggle-chev") as HTMLElement | null;
 const controlsRoot = document.getElementById("controls") as HTMLElement;
 const fxLayer = document.getElementById("fx-layer") as HTMLElement;
 
@@ -182,11 +183,10 @@ function applySettings(patch: Partial<Settings>, options: ApplyOptions = {}) {
 
 function setPanelOpen(open: boolean) {
     panelRoot.classList.toggle("show", open);
+    panelToggle.classList.toggle("is-open", open);
     document.body.classList.toggle("panel-open", open);
     panelToggle.setAttribute("aria-expanded", String(open));
-    if (toggleChevron) {
-        toggleChevron.textContent = open ? "▼" : "▲";
-    }
+    panelToggle.setAttribute("aria-label", open ? "收起统计面板" : "展开统计面板");
 }
 
 function spawnIgnitionRipple(clientX: number, clientY: number) {
@@ -245,18 +245,6 @@ simCanvas.addEventListener("pointercancel", () => {
 
 panelToggle.addEventListener("click", () => {
     setPanelOpen(!panelRoot.classList.contains("show"));
-});
-
-window.addEventListener("keydown", (event) => {
-    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
-        return;
-    }
-    if (event.key === "t" || event.key === "T") {
-        const next: ThemeId = settings.theme === "neon" ? "terminal" : "neon";
-        applySettings({ theme: next });
-    } else if (event.key === "p" || event.key === "P") {
-        setPanelOpen(!panelRoot.classList.contains("show"));
-    }
 });
 
 function handleResize() {
@@ -345,30 +333,8 @@ document.fonts.ready.then(() => {
 
 // Wallpaper Engine 用户属性（在浏览器中不存在，监听器会被忽略）
 (function setupWallpaperEngineProperties() {
-    const apply = (properties: Record<string, { value: unknown }>) => {
-        const patch: Partial<Settings> = {};
-        if (isThemeId(properties.theme?.value)) {
-            patch.theme = properties.theme.value;
-        }
-        if (typeof properties.show_clock?.value === "boolean") {
-            patch.showClock = properties.show_clock.value;
-        }
-        if (typeof properties.mouse_ignite?.value === "boolean") {
-            patch.mouseIgnite = properties.mouse_ignite.value;
-        }
-        if (typeof properties.skip_spread?.value === "boolean") {
-            patch.isSkipSpread = properties.skip_spread.value;
-        }
-        if (typeof properties.p_revive?.value === "number" && Number.isFinite(properties.p_revive.value)) {
-            patch.pRevive = properties.p_revive.value;
-        }
-        if (typeof properties.p_ignite?.value === "number" && Number.isFinite(properties.p_ignite.value)) {
-            patch.pIgnite = properties.p_ignite.value;
-        }
-        const cellSize = properties.cell_size?.value;
-        if (typeof cellSize === "number" && Number.isFinite(cellSize)) {
-            patch.cellSize = cellSize;
-        }
+    const apply = (properties: WallpaperProperties) => {
+        const patch = settingsPatchFromWallpaperProperties(properties);
         if (Object.keys(patch).length > 0) {
             applySettings(patch, { syncPanel: true });
         }
@@ -383,6 +349,7 @@ if (searchParams.get("debug") === "1") {
     (window as unknown as { __emberField: unknown }).__emberField = {
         getSettings: () => settings,
         getStatistics: () => statistics,
+        getBurningCount: () => fireSimulate.getBurningCount(),
         applySettings: (patch: Partial<Settings>) => applySettings(patch),
         openPanel: (open = true) => setPanelOpen(open),
         igniteAt: (x: number, y: number, radius = 4) => fireSimulate.igniteAt(x, y, radius),

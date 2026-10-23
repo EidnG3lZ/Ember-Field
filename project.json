@@ -46,29 +46,77 @@
         "min": 2,
         "max": 6,
         "step": 1,
-        "fraction": false
+        "fraction": false,
+        "editable": true
       },
       "p_revive": {
         "order": 6,
         "text": "生长率",
         "type": "slider",
         "value": 0.001,
-        "min": 0,
-        "max": 0.01,
-        "step": 0.0001,
+        "min": 0.00001,
+        "max": 0.1,
+        "step": 0.00001,
         "fraction": true,
-        "precision": 4
+        "precision": 5,
+        "editable": true
       },
       "p_ignite": {
         "order": 7,
         "text": "起火率",
         "type": "slider",
         "value": 0.000001,
-        "min": 0,
+        "min": 0.00000001,
         "max": 0.0001,
-        "step": 0.000001,
+        "step": 0.00000001,
         "fraction": true,
-        "precision": 6
+        "precision": 8,
+        "editable": true
+      },
+      "fire_spread_speed": {
+        "order": 8,
+        "text": "蔓延速度",
+        "type": "slider",
+        "value": 5,
+        "min": 1,
+        "max": 20,
+        "step": 1,
+        "fraction": false,
+        "editable": true
+      },
+      "burn_status_time": {
+        "order": 9,
+        "text": "燃烧时长",
+        "type": "slider",
+        "value": 5,
+        "min": 1,
+        "max": 20,
+        "step": 1,
+        "fraction": false,
+        "editable": true
+      },
+      "tick_time": {
+        "order": 10,
+        "text": "帧间隔",
+        "type": "slider",
+        "value": 15,
+        "min": 8,
+        "max": 50,
+        "step": 1,
+        "fraction": false,
+        "editable": true
+      },
+      "chart_scale": {
+        "order": 11,
+        "text": "面板缩放",
+        "type": "slider",
+        "value": 1,
+        "min": 0.5,
+        "max": 1.5,
+        "step": 0.05,
+        "fraction": true,
+        "precision": 2,
+        "editable": true
       }
     }
   },
