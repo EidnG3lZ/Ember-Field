@@ -108,7 +108,7 @@
       },
       "chart_scale": {
         "order": 11,
-        "text": "面板缩放",
+        "text": "图表缩放",
         "type": "slider",
         "value": 1,
         "min": 0.5,
@@ -117,6 +117,12 @@
         "fraction": true,
         "precision": 2,
         "editable": true
+      },
+      "chart_histogram": {
+        "order": 12,
+        "text": "直方图模式",
+        "type": "bool",
+        "value": false
       }
     }
   },

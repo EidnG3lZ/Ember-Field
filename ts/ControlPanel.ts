@@ -1,6 +1,12 @@
 import { formatPercent, formatScientific, Settings } from "./settings";
 import { THEME_LIST, ThemeId } from "./theme";
 
+type BooleanKey =
+    | "isSkipSpread"
+    | "showClock"
+    | "mouseIgnite"
+    | "chartHistogram";
+
 type NumericKey =
     | "pRevive"
     | "pIgnite"
@@ -79,6 +85,16 @@ const SLIDERS: SliderDefinition[] = [
     }
 ];
 
+const CHART_SCALE_SLIDER: SliderDefinition = {
+    key: "chartScale",
+    label: "图表缩放",
+    kind: "linear",
+    min: 0.5,
+    max: 1.5,
+    step: 0.05,
+    format: formatPercent
+};
+
 interface ControlPanelOptions {
     container: HTMLElement;
     settings: Settings;
@@ -117,7 +133,7 @@ export class ControlPanel {
     private sliderInputs = new Map<NumericKey, HTMLInputElement>();
     private sliderReadouts = new Map<NumericKey, HTMLElement>();
     private themeButtons = new Map<ThemeId, HTMLButtonElement>();
-    private switches = new Map<keyof Settings, HTMLInputElement>();
+    private switches = new Map<BooleanKey, HTMLInputElement>();
 
     constructor(options: ControlPanelOptions) {
         this.settings = options.settings;
@@ -134,7 +150,7 @@ export class ControlPanel {
     }
 
     sync() {
-        for (const definition of SLIDERS) {
+        for (const definition of [...SLIDERS, CHART_SCALE_SLIDER]) {
             const input = this.sliderInputs.get(definition.key);
             const readout = this.sliderReadouts.get(definition.key);
             if (!input || !readout) {
@@ -150,13 +166,14 @@ export class ControlPanel {
             button.classList.toggle("is-active", this.settings.theme === id);
             button.setAttribute("aria-pressed", String(this.settings.theme === id));
         }
-        const switchValues: Record<string, boolean> = {
+        const switchValues: Record<BooleanKey, boolean> = {
             isSkipSpread: this.settings.isSkipSpread,
             showClock: this.settings.showClock,
-            mouseIgnite: this.settings.mouseIgnite
+            mouseIgnite: this.settings.mouseIgnite,
+            chartHistogram: this.settings.chartHistogram
         };
         for (const [key, input] of this.switches) {
-            input.checked = Boolean(switchValues[key as string]);
+            input.checked = switchValues[key];
         }
     }
 
@@ -192,17 +209,8 @@ export class ControlPanel {
         appearance.appendChild(simulation);
 
         const display = section("显示与交互");
-        display.appendChild(
-            this.createSlider({
-                key: "chartScale",
-                label: "面板缩放",
-                kind: "linear",
-                min: 0.5,
-                max: 1.5,
-                step: 0.05,
-                format: formatPercent
-            })
-        );
+        display.appendChild(this.createSlider(CHART_SCALE_SLIDER));
+        display.appendChild(this.createSwitch("chartHistogram", "直方图模式", "用对数分箱聚合代替原始散点"));
         display.appendChild(this.createSwitch("showClock", "显示时钟", "顶部本地时间"));
         display.appendChild(this.createSwitch("mouseIgnite", "鼠标点火", "在画面上点击或拖拽"));
 
@@ -268,7 +276,7 @@ export class ControlPanel {
         return wrapper;
     }
 
-    private createSwitch(key: "isSkipSpread" | "showClock" | "mouseIgnite", title: string, hint: string) {
+    private createSwitch(key: BooleanKey, title: string, hint: string) {
         const row = el("label", "switch-row");
         const text = el("span", "switch-text");
         text.appendChild(el("span", "switch-title", title));

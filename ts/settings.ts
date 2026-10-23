@@ -18,6 +18,8 @@ export interface Settings {
     isSkipSpread: boolean;
     /** 统计图缩放 */
     chartScale: number;
+    /** 统计图是否显示为对数分箱直方图（关闭时为散点图） */
+    chartHistogram: boolean;
     showClock: boolean;
     mouseIgnite: boolean;
 }
@@ -32,6 +34,7 @@ export const DEFAULT_SETTINGS: Settings = {
     tickTime: 15,
     isSkipSpread: true,
     chartScale: 1,
+    chartHistogram: false,
     showClock: true,
     mouseIgnite: true
 };
@@ -70,6 +73,9 @@ export function normalizeSettings(input: Partial<Settings>): Settings {
     }
     if (typeof input.chartScale === "number") {
         result.chartScale = clamp(input.chartScale, 0.5, 1.5, DEFAULT_SETTINGS.chartScale);
+    }
+    if (typeof input.chartHistogram === "boolean") {
+        result.chartHistogram = input.chartHistogram;
     }
     if (typeof input.isSkipSpread === "boolean") {
         result.isSkipSpread = input.isSkipSpread;

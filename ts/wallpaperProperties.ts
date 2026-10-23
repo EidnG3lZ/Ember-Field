@@ -41,6 +41,10 @@ export function settingsPatchFromWallpaperProperties(properties: WallpaperProper
     if (isSkipSpread !== undefined) {
         patch.isSkipSpread = isSkipSpread;
     }
+    const chartHistogram = booleanValue(properties, "chart_histogram");
+    if (chartHistogram !== undefined) {
+        patch.chartHistogram = chartHistogram;
+    }
 
     const numericProperties: Array<[string, keyof Pick<Settings,
         "pRevive" | "pIgnite" | "cellSize" | "fireSpreadSpeed" |

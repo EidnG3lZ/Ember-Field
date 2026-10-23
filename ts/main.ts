@@ -119,8 +119,8 @@ function updateStatisticsChips(fit: PowerLawFit) {
     };
 
     const alphaText = fit.alpha === null ? "α —" : "α " + fit.alpha.toFixed(2);
-    addChip(alphaText, "chip-accent", "幂律指数 P(s) ∝ s^-α；拟合区间 x ≥ " + fit.fitFrom + "，" + fit.bins + " 个对数分箱");
-    addChip("R² " + (fit.r2 === null ? "—" : fit.r2.toFixed(2)), "", "加权拟合优度");
+    addChip(alphaText, "chip-accent", "幂律指数 P(s) ∝ s^-α；拟合区间 x ≥ " + fit.fitFrom + "，" + fit.bins + " 个 1.5× 对数分箱");
+    addChip("R² " + (fit.r2 === null ? "—" : fit.r2.toFixed(2)), "", "对数密度上的无加权拟合优度");
     addChip("样本 " + formatNumber(fit.totalFires));
     addChip("最大 " + formatNumber(fit.maxSize));
 }
@@ -152,6 +152,9 @@ function applySettings(patch: Partial<Settings>, options: ApplyOptions = {}) {
     }
     if (settings.chartScale !== previous.chartScale) {
         document.documentElement.style.setProperty("--chart-scale", String(settings.chartScale));
+    }
+    if (settings.chartHistogram !== previous.chartHistogram && statisticsDrawer) {
+        statisticsDrawer.setHistogramMode(settings.chartHistogram);
     }
     if (settings.cellSize !== previous.cellSize) {
         // 细胞尺寸改变后，火灾规模的绝对数值不再可比，重置统计
@@ -288,6 +291,7 @@ statisticsDrawer = new StatisticsDrawer(
     updateStatisticsChips,
     chartEmpty
 );
+statisticsDrawer.setHistogramMode(settings.chartHistogram);
 
 buildSimulation();
 updateStatisticsChips({

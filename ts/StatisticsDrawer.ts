@@ -8,31 +8,222 @@ export interface PowerLawFit {
     distinctSizes: number;
     /** 幂律指数 alpha：P(s) ~ s^-alpha */
     alpha: number | null;
-    /** 加权拟合优度 */
+    /** 对数密度上的无加权拟合优度 */
     r2: number | null;
     fitFrom: number;
     fitTo: number;
     bins: number;
 }
 
-interface BinPoint {
+/** 1.5 倍几何分箱的一个箱子。sizeSum 用于计算箱内按次数加权的平均规模。 */
+export interface LogBin {
+    lo: number;
+    hi: number;
+    count: number;
+    sizeSum: number;
+}
+
+export interface FitPoint {
     x: number;
     y: number;
-    weight: number;
+    density: number;
+}
+
+export interface PowerLawResult {
+    alpha: number | null;
+    r2: number | null;
+    slope: number | null;
+    intercept: number | null;
+    fitFrom: number;
+    fitTo: number;
+    bins: number;
+    points: FitPoint[];
 }
 
 const SUPERSCRIPT_DIGITS = ["⁰", "¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹"];
+const SUPERSCRIPT_MINUS = "⁻";
 
 function pow10Label(exponent: number) {
-    return "10" + String(exponent)
+    const sign = exponent < 0 ? SUPERSCRIPT_MINUS : "";
+    return "10" + sign + String(Math.abs(exponent))
         .split("")
         .map((digit) => SUPERSCRIPT_DIGITS[Number(digit)] ?? digit)
         .join("");
 }
 
+function isValidEntry(size: number, frequency: number) {
+    return Number.isFinite(size) && size > 0 && Number.isFinite(frequency) && frequency > 0;
+}
+
 /**
- * 统计面板：双对数散点 + 对数分箱幂律拟合。
- * 只统计“火灾规模 -> 发生次数”，拟合采用对数分箱后的加权最小二乘。
+ * 1.5 倍几何分箱：边界从 1 开始逐次乘 1.5 并取整。
+ * 与 Veritasium simulation5 的做法一致：边界取整、跳过零宽箱。
+ */
+export function buildLogBins(entries: ReadonlyArray<[number, number]>): LogBin[] {
+    let maxSize = 0;
+    for (const [size, frequency] of entries) {
+        if (isValidEntry(size, frequency)) {
+            maxSize = Math.max(maxSize, size);
+        }
+    }
+    if (maxSize <= 0) {
+        return [];
+    }
+
+    const edges: number[] = [1];
+    let edge = 1;
+    let guard = 0;
+    while (edge <= maxSize && guard++ < 256) {
+        edge *= 1.5;
+        const rounded = Math.round(edge);
+        if (rounded > edges[edges.length - 1]) {
+            edges.push(rounded);
+        }
+    }
+    // 保证最后一个边界严格大于最大火灾规模，避免最大值被硬塞进最后一个箱子。
+    while (edges[edges.length - 1] <= maxSize && guard++ < 512) {
+        edge *= 1.5;
+        const rounded = Math.round(edge);
+        if (rounded > edges[edges.length - 1]) {
+            edges.push(rounded);
+        }
+    }
+    if (edges[edges.length - 1] <= maxSize) {
+        edges.push(Math.ceil(maxSize) + 1);
+    }
+
+    const bins: LogBin[] = [];
+    for (let i = 0; i < edges.length - 1; i++) {
+        const lo = edges[i];
+        const hi = edges[i + 1];
+        if (hi > lo) {
+            bins.push({ lo, hi, count: 0, sizeSum: 0 });
+        }
+    }
+
+    const findBin = (size: number) => {
+        let low = 0;
+        let high = bins.length - 1;
+        while (low <= high) {
+            const mid = (low + high) >> 1;
+            if (size < bins[mid].lo) {
+                high = mid - 1;
+            } else if (size >= bins[mid].hi) {
+                low = mid + 1;
+            } else {
+                return mid;
+            }
+        }
+        return -1;
+    };
+
+    for (const [size, frequency] of entries) {
+        if (!isValidEntry(size, frequency)) {
+            continue;
+        }
+        const index = findBin(size);
+        if (index < 0) {
+            continue;
+        }
+        bins[index].count += frequency;
+        bins[index].sizeSum += size * frequency;
+    }
+    return bins;
+}
+
+/**
+ * 在 1.5 倍分箱后的密度序列上做无加权最小二乘。
+ * 对 P(s) ∝ s^-alpha，密度 C_bin / Δs 的双对数斜率就是 -alpha。
+ */
+export function fitPowerLaw(bins: LogBin[], maxSize: number, fitFrom = 4): PowerLawResult {
+    const start = Math.max(4, fitFrom);
+    const empty: PowerLawResult = {
+        alpha: null,
+        r2: null,
+        slope: null,
+        intercept: null,
+        fitFrom: start,
+        fitTo: maxSize,
+        bins: 0,
+        points: []
+    };
+    if (maxSize <= 0 || maxSize / start < 4) {
+        return empty;
+    }
+
+    const points: FitPoint[] = [];
+    for (const bin of bins) {
+        if (bin.count <= 0) {
+            continue;
+        }
+        const width = bin.hi - bin.lo;
+        if (width <= 0) {
+            continue;
+        }
+        const mean = bin.sizeSum / bin.count;
+        if (!Number.isFinite(mean) || mean < start) {
+            continue;
+        }
+        const density = bin.count / width;
+        if (!(density > 0) || !Number.isFinite(density)) {
+            continue;
+        }
+        points.push({
+            x: Math.log10(mean),
+            y: Math.log10(density),
+            density
+        });
+    }
+    empty.points = points;
+    empty.bins = points.length;
+    if (points.length < 3) {
+        return empty;
+    }
+
+    let xSum = 0;
+    let ySum = 0;
+    let xxSum = 0;
+    let xySum = 0;
+    for (const point of points) {
+        xSum += point.x;
+        ySum += point.y;
+        xxSum += point.x * point.x;
+        xySum += point.x * point.y;
+    }
+    const count = points.length;
+    const denominator = count * xxSum - xSum * xSum;
+    if (Math.abs(denominator) < 1e-12) {
+        return empty;
+    }
+    const slope = (count * xySum - xSum * ySum) / denominator;
+    const intercept = (ySum - slope * xSum) / count;
+    const alpha = -slope;
+
+    const yMean = ySum / count;
+    let residual = 0;
+    let total = 0;
+    for (const point of points) {
+        const predicted = intercept + slope * point.x;
+        residual += Math.pow(point.y - predicted, 2);
+        total += Math.pow(point.y - yMean, 2);
+    }
+    const r2 = total > 1e-12 ? 1 - residual / total : null;
+
+    return {
+        alpha: Number.isFinite(alpha) ? alpha : null,
+        r2: r2 !== null && Number.isFinite(r2) ? r2 : null,
+        slope: Number.isFinite(slope) ? slope : null,
+        intercept: Number.isFinite(intercept) ? intercept : null,
+        fitFrom: start,
+        fitTo: maxSize,
+        bins: points.length,
+        points
+    };
+}
+
+/**
+ * 统计面板：双对数分箱密度散点 / 密度直方图 + 幂律拟合。
+ * 散点和直方图都画 count / 箱宽 的密度，共享同一套 1.5× 分箱和纵轴。
  */
 export class StatisticsDrawer {
     private canvas: HTMLCanvasElement;
@@ -46,6 +237,7 @@ export class StatisticsDrawer {
     private width = 0;
     private height = 0;
     private dpr = 1;
+    private histogramMode = false;
     private resizeObserver: ResizeObserver | null = null;
 
     constructor(
@@ -79,6 +271,15 @@ export class StatisticsDrawer {
     setDataSource(statistics: FireStatistics) {
         this.statistics = statistics;
         this.lastVersion = -1;
+        this.dirty = true;
+        this.render();
+    }
+
+    setHistogramMode(enabled: boolean) {
+        if (this.histogramMode === enabled) {
+            return;
+        }
+        this.histogramMode = enabled;
         this.dirty = true;
         this.render();
     }
@@ -125,7 +326,7 @@ export class StatisticsDrawer {
         context.clearRect(0, 0, width, height);
 
         const entries = Array.from(this.statistics.data.entries());
-        const fit = this.calculateFit(entries);
+        const { fit, bins, result } = this.calculateFit(entries);
         this.onFit(fit);
         if (this.emptyEl) {
             this.emptyEl.hidden = fit.totalFires > 0;
@@ -136,20 +337,53 @@ export class StatisticsDrawer {
         const plotHeight = Math.max(40, height - padding.top - padding.bottom);
 
         const maxSize = fit.totalFires > 0 ? fit.maxSize : 1000;
-        const maxFrequency = fit.totalFires > 0 ? fit.maxFrequency : 100;
-        const xMaxExp = Math.max(3, Math.log10(Math.max(10, maxSize)) + 0.25);
-        const yMaxExp = Math.max(1.6, Math.log10(Math.max(10, maxFrequency)) + 0.35);
-        const xMinExp = -0.1;
-        const yMinExp = -0.1;
+        const lastBinHi = bins.length > 0 ? bins[bins.length - 1].hi : maxSize;
+        const xMinExp = -0.05;
+        const xMaxExp = Math.max(3, Math.log10(Math.max(10, lastBinHi)) + 0.1);
+
+        // 纵轴是密度，可能小于 1，所以下界需要允许负指数。
+        let minDensity = Infinity;
+        let maxDensity = 0;
+        const considerDensity = (density: number) => {
+            if (Number.isFinite(density) && density > 0) {
+                minDensity = Math.min(minDensity, density);
+                maxDensity = Math.max(maxDensity, density);
+            }
+        };
+        for (const bin of bins) {
+            if (bin.count > 0) {
+                considerDensity(bin.count / (bin.hi - bin.lo));
+            }
+        }
+        if (result.slope !== null && result.intercept !== null) {
+            for (const x of [result.fitFrom, result.fitTo]) {
+                if (x > 0) {
+                    considerDensity(Math.pow(10, result.intercept + result.slope * Math.log10(x)));
+                }
+            }
+        }
+        if (!Number.isFinite(minDensity) || minDensity <= 0) {
+            minDensity = 1;
+        }
+        if (maxDensity <= 0) {
+            maxDensity = 1;
+        }
+        let yMinExp = Math.floor(Math.log10(minDensity));
+        let yMaxExp = Math.ceil(Math.log10(maxDensity));
+        if (yMaxExp - yMinExp < 2) {
+            yMaxExp = yMinExp + 2;
+        }
+        yMinExp -= 0.05;
+        yMaxExp += 0.05;
 
         const xScale = (logValue: number) =>
             padding.left + ((logValue - xMinExp) / (xMaxExp - xMinExp)) * plotWidth;
         const yScale = (logValue: number) =>
             padding.top + plotHeight - ((logValue - yMinExp) / (yMaxExp - yMinExp)) * plotHeight;
 
-        this.drawGrid(context, padding, plotWidth, plotHeight, xMaxExp, yMaxExp, xScale, yScale);
+        this.drawGrid(context, padding, plotWidth, plotHeight, xMaxExp, yMinExp, yMaxExp, xScale, yScale);
         this.drawAxes(context, padding, plotWidth, plotHeight);
-        this.drawTickLabels(context, padding, plotWidth, plotHeight, xMaxExp, yMaxExp, xScale, yScale);
+        this.drawTickLabels(context, padding, plotWidth, plotHeight, xMaxExp, yMinExp, yMaxExp, xScale, yScale);
 
         if (fit.totalFires === 0) {
             context.save();
@@ -162,33 +396,45 @@ export class StatisticsDrawer {
             return;
         }
 
-        this.drawPoints(context, entries, padding, plotWidth, plotHeight, xScale, yScale);
-        if (fit.alpha !== null) {
-            this.drawFitLine(context, fit, entries, padding, plotWidth, plotHeight, xScale, yScale);
+        if (this.histogramMode) {
+            this.drawHistogram(context, bins, padding, plotHeight, xScale, yScale);
+        } else {
+            this.drawPoints(context, bins, padding, plotWidth, plotHeight, xScale, yScale);
         }
-        this.drawLegend(context, padding, plotWidth, fit.alpha !== null);
+        if (result.slope !== null && result.intercept !== null) {
+            this.drawFitLine(context, result, padding, plotWidth, plotHeight, xScale, yScale);
+        }
+        this.drawLegend(context, padding, plotWidth, this.histogramMode, result.slope !== null);
     }
 
     private drawLegend(
         context: CanvasRenderingContext2D,
         padding: { left: number; right: number; top: number; bottom: number },
         plotWidth: number,
+        histogram: boolean,
         hasFit: boolean
     ) {
         const right = padding.left + plotWidth - 10;
         let y = padding.top + 13;
+        const seriesLabel = histogram ? "对数分箱密度" : "分箱密度点";
         context.save();
         context.font = "9.5px 'Microsoft YaHei', 'PingFang SC', sans-serif";
         context.textAlign = "right";
         context.textBaseline = "middle";
         context.fillStyle = this.palette.legend;
 
-        context.fillText("观测数据", right, y);
-        const dotWidth = context.measureText("观测数据").width;
+        context.fillText(seriesLabel, right, y);
+        const labelWidth = context.measureText(seriesLabel).width;
         context.fillStyle = this.palette.dot;
-        context.beginPath();
-        context.arc(right - dotWidth - 11, y, 2.6, 0, Math.PI * 2);
-        context.fill();
+        if (histogram) {
+            context.globalAlpha = 0.72;
+            context.fillRect(right - labelWidth - 17, y - 3.5, 11, 7);
+            context.globalAlpha = 1;
+        } else {
+            context.beginPath();
+            context.arc(right - labelWidth - 11, y, 2.6, 0, Math.PI * 2);
+            context.fill();
+        }
 
         if (hasFit) {
             y += 16;
@@ -212,6 +458,7 @@ export class StatisticsDrawer {
         plotWidth: number,
         plotHeight: number,
         xMaxExp: number,
+        yMinExp: number,
         yMaxExp: number,
         xScale: (value: number) => number,
         yScale: (value: number) => number
@@ -227,7 +474,7 @@ export class StatisticsDrawer {
             context.lineTo(x, padding.top + plotHeight);
             context.stroke();
         }
-        for (let exponent = 0; exponent <= Math.floor(yMaxExp); exponent++) {
+        for (let exponent = Math.ceil(yMinExp); exponent <= Math.floor(yMaxExp); exponent++) {
             const y = Math.round(yScale(exponent) * this.dpr) / this.dpr;
             context.strokeStyle = this.palette.grid;
             context.beginPath();
@@ -247,7 +494,11 @@ export class StatisticsDrawer {
                 context.stroke();
             }
         }
-        for (let exponent = 0; exponent < Math.floor(yMaxExp); exponent++) {
+        for (
+            let exponent = Math.ceil(yMinExp);
+            exponent < Math.floor(yMaxExp);
+            exponent++
+        ) {
             for (let multiplier = 2; multiplier <= 9; multiplier++) {
                 const y = yScale(exponent + Math.log10(multiplier));
                 context.beginPath();
@@ -278,14 +529,14 @@ export class StatisticsDrawer {
         context.font = "11px 'Microsoft YaHei', 'PingFang SC', sans-serif";
         context.textAlign = "center";
         context.textBaseline = "bottom";
-        context.fillText("火灾规模 / 燃烧细胞数", padding.left + plotWidth / 2, this.height - 8);
+        context.fillText("火灾规模 s / 燃烧细胞数", padding.left + plotWidth / 2, this.height - 8);
 
         context.save();
         context.translate(14, padding.top + plotHeight / 2);
         context.rotate(-Math.PI / 2);
         context.textAlign = "center";
         context.textBaseline = "top";
-        context.fillText("发生频次", 0, 0);
+        context.fillText("概率密度 P(s)", 0, 0);
         context.restore();
         context.restore();
     }
@@ -296,6 +547,7 @@ export class StatisticsDrawer {
         plotWidth: number,
         plotHeight: number,
         xMaxExp: number,
+        yMinExp: number,
         yMaxExp: number,
         xScale: (value: number) => number,
         yScale: (value: number) => number
@@ -320,7 +572,7 @@ export class StatisticsDrawer {
 
         context.textAlign = "right";
         context.textBaseline = "middle";
-        for (let exponent = 0; exponent <= Math.floor(yMaxExp); exponent++) {
+        for (let exponent = Math.ceil(yMinExp); exponent <= Math.floor(yMaxExp); exponent++) {
             const y = yScale(exponent);
             context.fillText(pow10Label(exponent), padding.left - 9, y);
         }
@@ -329,7 +581,7 @@ export class StatisticsDrawer {
 
     private drawPoints(
         context: CanvasRenderingContext2D,
-        entries: [number, number][],
+        bins: LogBin[],
         padding: { left: number; right: number; top: number; bottom: number },
         plotWidth: number,
         plotHeight: number,
@@ -339,15 +591,21 @@ export class StatisticsDrawer {
         context.save();
         context.fillStyle = this.palette.dot;
         context.shadowColor = this.palette.dotGlow;
-        context.shadowBlur = entries.length > 700 ? 0 : 9;
+        context.shadowBlur = bins.length > 700 ? 0 : 9;
         context.globalAlpha = 0.92;
-        for (const [size, frequency] of entries) {
-            if (size <= 0 || frequency <= 0) {
+        for (const bin of bins) {
+            const width = bin.hi - bin.lo;
+            if (bin.count <= 0 || width <= 0) {
                 continue;
             }
-            const x = xScale(Math.log10(size));
-            const y = yScale(Math.log10(frequency));
-            const radius = 2.3 + Math.min(3.4, Math.log10(frequency + 1) * 0.75);
+            const mean = bin.sizeSum / bin.count;
+            const density = bin.count / width;
+            if (!(mean > 0) || !(density > 0)) {
+                continue;
+            }
+            const x = xScale(Math.log10(mean));
+            const y = yScale(Math.log10(density));
+            const radius = 2.3 + Math.min(3.4, Math.log10(bin.count + 1) * 0.75);
             context.beginPath();
             context.arc(x, y, radius, 0, Math.PI * 2);
             context.fill();
@@ -355,24 +613,51 @@ export class StatisticsDrawer {
         context.restore();
     }
 
+    private drawHistogram(
+        context: CanvasRenderingContext2D,
+        bins: LogBin[],
+        padding: { left: number; right: number; top: number; bottom: number },
+        plotHeight: number,
+        xScale: (value: number) => number,
+        yScale: (value: number) => number
+    ) {
+        const baseline = padding.top + plotHeight;
+        context.save();
+        context.fillStyle = this.palette.dot;
+        context.globalAlpha = 0.72;
+        for (const bin of bins) {
+            if (bin.count <= 0 || bin.hi <= bin.lo) {
+                continue;
+            }
+            const density = bin.count / (bin.hi - bin.lo);
+            if (!(density > 0)) {
+                continue;
+            }
+            const left = xScale(Math.log10(bin.lo));
+            const right = xScale(Math.log10(bin.hi));
+            const top = yScale(Math.log10(density));
+            const width = Math.max(1, right - left - 1);
+            context.fillRect(left + 0.5, top, width, baseline - top);
+        }
+        context.restore();
+    }
+
     private drawFitLine(
         context: CanvasRenderingContext2D,
-        fit: PowerLawFit,
-        entries: [number, number][],
+        result: PowerLawResult,
         padding: { left: number; right: number; top: number; bottom: number },
         plotWidth: number,
         plotHeight: number,
         xScale: (value: number) => number,
         yScale: (value: number) => number
     ) {
-        const regression = this.regress(fit, entries);
-        if (regression === null) {
+        if (result.slope === null || result.intercept === null) {
             return;
         }
-        const startX = Math.log10(fit.fitFrom);
-        const endX = Math.log10(fit.fitTo);
-        const startY = regression.intercept + regression.slope * startX;
-        const endY = regression.intercept + regression.slope * endX;
+        const startX = Math.log10(result.fitFrom);
+        const endX = Math.log10(result.fitTo);
+        const startY = result.intercept + result.slope * startX;
+        const endY = result.intercept + result.slope * endX;
 
         context.save();
         context.beginPath();
@@ -389,189 +674,35 @@ export class StatisticsDrawer {
         context.restore();
     }
 
-    private calculateFit(entries: [number, number][]): PowerLawFit {
+    private calculateFit(entries: [number, number][]) {
         let totalFires = 0;
         let maxSize = 0;
         let maxFrequency = 0;
-        let minSize = Infinity;
         let distinctSizes = 0;
         for (const [size, frequency] of entries) {
-            if (!Number.isFinite(size) || size <= 0 || !Number.isFinite(frequency) || frequency <= 0) {
+            if (!isValidEntry(size, frequency)) {
                 continue;
             }
             totalFires += frequency;
             maxSize = Math.max(maxSize, size);
             maxFrequency = Math.max(maxFrequency, frequency);
-            minSize = Math.min(minSize, size);
             distinctSizes++;
         }
 
-        const base: PowerLawFit = {
+        const bins = buildLogBins(entries);
+        const result = fitPowerLaw(bins, maxSize, 4);
+        const fit: PowerLawFit = {
             totalFires,
             maxSize,
             maxFrequency,
             distinctSizes,
-            alpha: null,
-            r2: null,
-            fitFrom: 0,
-            fitTo: 0,
-            bins: 0
+            alpha: result.alpha,
+            r2: result.r2,
+            fitFrom: result.fitFrom,
+            fitTo: result.fitTo,
+            bins: result.bins
         };
-        if (totalFires === 0) {
-            return base;
-        }
-
-        const fitFrom = Math.max(4, minSize);
-        const fitTo = maxSize;
-        base.fitFrom = fitFrom;
-        base.fitTo = fitTo;
-        if (fitTo / fitFrom < 4) {
-            return base;
-        }
-
-        const logLow = Math.log10(fitFrom);
-        const logHigh = Math.log10(fitTo);
-        const binCount = 12;
-        const step = (logHigh - logLow) / binCount;
-        const bins: { lo: number; hi: number; count: number }[] = [];
-        for (let i = 0; i < binCount; i++) {
-            bins.push({
-                lo: Math.pow(10, logLow + i * step),
-                hi: Math.pow(10, logLow + (i + 1) * step),
-                count: 0
-            });
-        }
-
-        for (const [size, frequency] of entries) {
-            if (size < fitFrom || size > fitTo) {
-                continue;
-            }
-            let index = Math.floor((Math.log10(size) - logLow) / step);
-            if (index < 0) {
-                index = 0;
-            } else if (index >= binCount) {
-                index = binCount - 1;
-            }
-            bins[index].count += frequency;
-        }
-
-        const points: BinPoint[] = [];
-        let usedBins = 0;
-        for (const bin of bins) {
-            if (bin.count <= 0) {
-                continue;
-            }
-            const center = Math.sqrt(bin.lo * bin.hi);
-            points.push({
-                x: Math.log10(center),
-                y: Math.log10(bin.count),
-                weight: bin.count
-            });
-            usedBins++;
-        }
-        base.bins = usedBins;
-        if (points.length < 3) {
-            return base;
-        }
-
-        let weightSum = 0;
-        let xSum = 0;
-        let ySum = 0;
-        let xxSum = 0;
-        let xySum = 0;
-        for (const point of points) {
-            weightSum += point.weight;
-            xSum += point.weight * point.x;
-            ySum += point.weight * point.y;
-            xxSum += point.weight * point.x * point.x;
-            xySum += point.weight * point.x * point.y;
-        }
-        const denominator = weightSum * xxSum - xSum * xSum;
-        if (Math.abs(denominator) < 1e-12) {
-            return base;
-        }
-        const slope = (weightSum * xySum - xSum * ySum) / denominator;
-        const intercept = (ySum - slope * xSum) / weightSum;
-        const alpha = 1 - slope;
-
-        let residual = 0;
-        let total = 0;
-        const yMean = ySum / weightSum;
-        for (const point of points) {
-            const predicted = intercept + slope * point.x;
-            residual += point.weight * Math.pow(point.y - predicted, 2);
-            total += point.weight * Math.pow(point.y - yMean, 2);
-        }
-        const r2 = total > 1e-12 ? 1 - residual / total : null;
-
-        base.alpha = Number.isFinite(alpha) ? alpha : null;
-        base.r2 = r2 !== null && Number.isFinite(r2) ? r2 : null;
-        return base;
-    }
-
-    private regress(fit: PowerLawFit, entries: [number, number][]) {
-        const fitFrom = fit.fitFrom;
-        const fitTo = fit.fitTo;
-        if (fitTo / fitFrom < 4) {
-            return null;
-        }
-        const logLow = Math.log10(fitFrom);
-        const logHigh = Math.log10(fitTo);
-        const binCount = 12;
-        const step = (logHigh - logLow) / binCount;
-        const bins: { lo: number; hi: number; count: number }[] = [];
-        for (let i = 0; i < binCount; i++) {
-            bins.push({
-                lo: Math.pow(10, logLow + i * step),
-                hi: Math.pow(10, logLow + (i + 1) * step),
-                count: 0
-            });
-        }
-        for (const [size, frequency] of entries) {
-            if (size < fitFrom || size > fitTo) {
-                continue;
-            }
-            let index = Math.floor((Math.log10(size) - logLow) / step);
-            if (index < 0) {
-                index = 0;
-            } else if (index >= binCount) {
-                index = binCount - 1;
-            }
-            bins[index].count += frequency;
-        }
-        const points: BinPoint[] = [];
-        for (const bin of bins) {
-            if (bin.count <= 0) {
-                continue;
-            }
-            points.push({
-                x: Math.log10(Math.sqrt(bin.lo * bin.hi)),
-                y: Math.log10(bin.count),
-                weight: bin.count
-            });
-        }
-        if (points.length < 3) {
-            return null;
-        }
-        let weightSum = 0;
-        let xSum = 0;
-        let ySum = 0;
-        let xxSum = 0;
-        let xySum = 0;
-        for (const point of points) {
-            weightSum += point.weight;
-            xSum += point.weight * point.x;
-            ySum += point.weight * point.y;
-            xxSum += point.weight * point.x * point.x;
-            xySum += point.weight * point.x * point.y;
-        }
-        const denominator = weightSum * xxSum - xSum * xSum;
-        if (Math.abs(denominator) < 1e-12) {
-            return null;
-        }
-        const slope = (weightSum * xySum - xSum * ySum) / denominator;
-        const intercept = (ySum - slope * xSum) / weightSum;
-        return { slope, intercept };
+        return { fit, bins, result };
     }
 
     destroy() {

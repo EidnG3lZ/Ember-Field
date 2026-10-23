@@ -252,11 +252,16 @@ html[data-theme="terminal"] .clock::before {
 
 .panel {
     --panel-bottom: clamp(64px, 7vh, 140px);
+    --panel-min-width: 1120px;
+    --panel-fixed-width: 436px;
+    --chart-base-width: 684px;
+    --chart-aspect: 684 / 400;
     position: fixed;
     z-index: 4;
     left: 50%;
     bottom: var(--panel-bottom);
-    width: min(1120px, calc(100vw - 56px));
+    /* 放大时扩展主列宽度；缩小时保持面板宽度，只缩小图表 */
+    width: min(max(var(--panel-min-width), calc(var(--panel-fixed-width) + var(--chart-base-width) * var(--chart-scale, 1))), calc(100vw - 56px));
     background:
         radial-gradient(140% 120% at 0% 0%, rgba(var(--accent-rgb), 0.045), transparent 55%),
         var(--panel-bg);
@@ -433,8 +438,10 @@ html[data-theme="terminal"] .clock::before {
 
 .chart-wrap {
     position: relative;
-    height: calc(400px * var(--chart-scale, 1));
-    margin-top: 14px;
+    width: calc(100% * min(var(--chart-scale, 1), 1));
+    aspect-ratio: var(--chart-aspect, 684 / 400);
+    height: auto;
+    margin: 14px auto 0;
 }
 
 #stats-canvas {
@@ -859,7 +866,7 @@ html[data-theme="terminal"] .clock::before {
     }
 
     .chart-wrap {
-        height: calc(300px * var(--chart-scale, 1));
+        --chart-aspect: 3 / 1;
     }
 
     .panel-side {
@@ -906,7 +913,7 @@ html[data-theme="terminal"] .clock::before {
 
 @media (max-height: 860px) and (min-width: 981px) {
     .chart-wrap {
-        height: calc(340px * var(--chart-scale, 1));
+        --chart-aspect: 684 / 340;
     }
 
     .panel-body {
@@ -925,7 +932,10 @@ html[data-theme="terminal"] .clock::before {
 
 @media (min-width: 2200px) {
     .panel {
-        width: clamp(1120px, 62vw, 2000px);
+        --panel-min-width: clamp(1120px, 62vw, 2000px);
+        --panel-fixed-width: 568px;
+        --chart-base-width: calc(var(--panel-min-width) - 568px);
+        width: min(max(var(--panel-min-width), calc(var(--panel-fixed-width) + var(--chart-base-width) * var(--chart-scale, 1))), calc(100vw - 56px));
         border-radius: 24px;
     }
 
@@ -936,6 +946,7 @@ html[data-theme="terminal"] .clock::before {
     }
 
     .chart-wrap {
+        aspect-ratio: auto;
         height: calc(560px * var(--chart-scale, 1));
     }
 
