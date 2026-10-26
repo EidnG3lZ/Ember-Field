@@ -2,7 +2,7 @@ import { Clock } from "./Clock";
 import { ControlPanel } from "./ControlPanel";
 import { createFireStatistics, FireSimulate, FireStatistics } from "./FireSimulate";
 import { formatNumber, loadSettings, normalizeSettings, saveSettings, Settings } from "./settings";
-import { SimulatorDrawer } from "./SimulatorDrawer";
+import { SimulatorDrawer } from "./SimulatorDrawerNew";
 import { PowerLawFit, StatisticsDrawer } from "./StatisticsDrawer";
 import { applyTheme, isThemeId, THEMES, ThemeId } from "./theme";
 import { settingsPatchFromWallpaperProperties } from "./wallpaperProperties";
@@ -91,8 +91,6 @@ function buildSimulation(preserveGrid = false) {
     simulatorDrawer = new SimulatorDrawer(
         simulatorContext,
         settings.cellSize,
-        cellNumberX,
-        cellNumberY,
         fireSimulate,
         themeDefinition().sim
     );
