@@ -1,0 +1,18 @@
+{
+  "##": {
+    "scripts": {
+      "build": "esbuild ts/main.ts --bundle --outdir=js --target=es2019 --log-level=warning",
+      "watch": "esbuild ts/main.ts --bundle --outdir=js --target=es2019 --watch"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "prebuild": "npm run typecheck",
+    "build": "esbuild ts/main.ts --bundle --outfile=js/main.js --platform=browser --format=iife --target=chrome91 --charset=utf8 --legal-comments=none --log-level=info",
+    "build:min": "npm run build -- --minify",
+    "watch": "npm run build -- --watch --sourcemap=inline"
+  },
+  "devDependencies": {
+    "esbuild": "0.27.1"
+  }
+}

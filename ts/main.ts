@@ -32,8 +32,8 @@ applyTheme(settings.theme);
 document.documentElement.style.setProperty("--chart-scale", String(settings.chartScale));
 
 const statistics: FireStatistics = createFireStatistics();
-let fireSimulate: FireSimulate;
-let simulatorDrawer: SimulatorDrawer;
+let fireSimulate!: FireSimulate;
+let simulatorDrawer!: SimulatorDrawer;
 let statisticsDrawer: StatisticsDrawer;
 let clock: Clock;
 let controlPanel: ControlPanel;
