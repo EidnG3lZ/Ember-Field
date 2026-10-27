@@ -6,3 +6,4 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "Built js/main.js"
+Read-Host

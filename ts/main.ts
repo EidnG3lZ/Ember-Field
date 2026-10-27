@@ -329,6 +329,7 @@ document.fonts.ready.then(() => {
         }
         const usedTime = performance.now() - startTime;
         const sleepTime = Math.max(2, settings.tickTime - usedTime);
+        console.debug(`mspt:${Math.floor(usedTime)};tps:${Math.floor(1000/(sleepTime+usedTime))}`);
         await sleep(sleepTime);
     }
 })();
