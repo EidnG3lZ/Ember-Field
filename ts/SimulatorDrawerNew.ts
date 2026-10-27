@@ -1,6 +1,6 @@
 import { FireSimulate } from "./FireSimulate";
 import { SimPalette } from "./theme";
-import { getRGBAFromStr } from "./tools";
+import { getRGBAFromStr, RGBA } from "./tools";
 
 export class SimulatorDrawer {
     private ctx: CanvasRenderingContext2D;
@@ -14,6 +14,7 @@ export class SimulatorDrawer {
     private cellGrid: Uint8Array;
     private palette: SimPalette;
     private oldGrid: Uint8Array;
+    private tempRGBA: RGBA;
 
     constructor(
         context: CanvasRenderingContext2D | null,
@@ -24,6 +25,7 @@ export class SimulatorDrawer {
         if (context === null) {
             throw new Error("SimulatorDrawer:context is null");
         }
+        this.tempRGBA = { r: 0, g: 0, b: 0, a: 0 };
         this.ctx = context;
         this.blockNumX = dataSource.getCellNumX();
         this.blockNumY = dataSource.getCellNumY();
@@ -86,6 +88,7 @@ export class SimulatorDrawer {
         const ctx = this.ctx;
         const zoomCanvas = this.zoomCanvas;
         const zoomCanvasCtx = this.zoomCanvasCtx;
+        const tempRGBA = this.tempRGBA;
         for (let y = 0; y < height; y += 1) {
             let idxOffset = y * width;
             for (let x = 0; x < width; x += 1) {
@@ -96,24 +99,28 @@ export class SimulatorDrawer {
                 const colorStateID = this.getColorStateID(cellGrid[idx]);
                 switch (colorStateID) {
                     case 0:
-                        this.setBufferPixel(idx, getRGBAFromStr(palette.dead) ?? { r: 7, g: 9, b: 11 });
+                        getRGBAFromStr(palette.dead, tempRGBA, { r: 7, g: 9, b: 11, a: 255 });
                         break;
                     case 1:
-                        this.setBufferPixel(idx, getRGBAFromStr(this.getAliveColor(x, y)) ?? { r: 34, g: 184, b: 95 });
+                        getRGBAFromStr(this.getAliveColor(x, y), tempRGBA, { r: 34, g: 184, b: 95, a: 255 });
                         break;
                     case 2:
-                        this.setBufferPixel(idx, getRGBAFromStr(palette.burn[0]) ?? { r: 255, g: 209, b: 102 });
+                        getRGBAFromStr(palette.burn[0], tempRGBA, { r: 255, g: 209, b: 102, a: 255 });
                         break;
                     case 3:
-                        this.setBufferPixel(idx, getRGBAFromStr(palette.burn[1]) ?? { r: 255, g: 138, b: 61 });
+                        getRGBAFromStr(palette.burn[1], tempRGBA, { r: 255, g: 138, b: 61, a: 255 });
                         break;
                     case 4:
-                        this.setBufferPixel(idx, getRGBAFromStr(palette.burn[2]) ?? { r: 255, g: 77, b: 109 });
+                        getRGBAFromStr(palette.burn[2], tempRGBA, { r: 255, g: 77, b: 109, a: 255 });
                         break;
                     default:
-                        this.setBufferPixel(idx, { r: 255, g: 0, b: 255 })
+                        tempRGBA.r = 255;
+                        tempRGBA.g = 0;
+                        tempRGBA.b = 255;
+                        tempRGBA.a = 255;
                         break;
                 }
+                this.setBufferPixel(idx, tempRGBA);
                 oldGrid[idx] = cellGrid[idx];
             }
         }
