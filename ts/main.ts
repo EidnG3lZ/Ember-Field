@@ -32,6 +32,8 @@ applyTheme(settings.theme);
 document.documentElement.style.setProperty("--chart-scale", String(settings.chartScale));
 
 const statistics: FireStatistics = createFireStatistics();
+// 这两个实例在 buildSimulation() 里赋值，主循环 IIFE 在其之后才启动；
+// 加 ! 是因为 tsc 不做跨函数控制流分析，无法看出赋值一定先于使用。
 let fireSimulate!: FireSimulate;
 let simulatorDrawer!: SimulatorDrawer;
 let statisticsDrawer: StatisticsDrawer;
@@ -52,9 +54,6 @@ function buildSimulation(preserveGrid = false) {
     // 避免浏览器窗口尺寸变化时画布与视口不同步而留下黑边。
     const width = Math.max(1, simCanvas.clientWidth || window.innerWidth);
     const height = Math.max(1, simCanvas.clientHeight || window.innerHeight);
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    simCanvas.width = Math.round(width * dpr);
-    simCanvas.height = Math.round(height * dpr);
     const previousGrid = preserveGrid && fireSimulate ? fireSimulate.getCellGrid() : null;
     const previousCellNumX = cellNumberX;
     const previousCellNumY = cellNumberY;
@@ -86,11 +85,10 @@ function buildSimulation(preserveGrid = false) {
         }
     }
 
+    // 画布后备存储由绘制器设成网格尺寸，放大交给 CSS（image-rendering: pixelated）
     const simulatorContext = simCanvas.getContext("2d");
-    simulatorContext?.setTransform(dpr, 0, 0, dpr, 0, 0);
     simulatorDrawer = new SimulatorDrawer(
         simulatorContext,
-        settings.cellSize,
         fireSimulate,
         themeDefinition().sim
     );
@@ -216,9 +214,10 @@ function igniteFromPointer(event: PointerEvent) {
         return;
     }
     lastIgniteTime = now;
+    // 画布后备存储是网格尺寸、由 CSS 放大，所以按 CSS 盒子的实际尺寸换算格坐标
     const rect = simCanvas.getBoundingClientRect();
-    const cellX = (event.clientX - rect.left) / settings.cellSize;
-    const cellY = (event.clientY - rect.top) / settings.cellSize;
+    const cellX = ((event.clientX - rect.left) / Math.max(1, rect.width)) * cellNumberX;
+    const cellY = ((event.clientY - rect.top) / Math.max(1, rect.height)) * cellNumberY;
     const radius = Math.max(2, Math.round(5 / settings.cellSize));
     fireSimulate.igniteAt(cellX, cellY, radius);
     spawnIgnitionRipple(event.clientX, event.clientY);

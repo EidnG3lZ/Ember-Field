@@ -75,6 +75,8 @@ body {
     display: block;
     width: 100vw;
     height: 100vh;
+    /* 后备存储是网格尺寸（1 细胞 1 像素），由合成器最近邻放大到视口 */
+    image-rendering: pixelated;
     z-index: 0;
     touch-action: none;
 }
