@@ -1,0 +1,7 @@
+.vscode/
+js/
+node_modules/
+package-lock.json
+.edge-profile*/
+.edge-cdp/
+shots/
