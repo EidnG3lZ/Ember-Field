@@ -1,6 +1,6 @@
 import { Clock } from "./Clock";
 import { ControlPanel } from "./ControlPanel";
-import { createFireStatistics, FireSimulate, FireStatistics } from "./FireSimulate";
+import { createFireStatistics, FireSimulate, FireStatistics } from "./FireSimulateNew";
 import { formatNumber, loadSettings, normalizeSettings, saveSettings, Settings } from "./settings";
 import { SimulatorDrawer } from "./SimulatorDrawerNew";
 import { PowerLawFit, StatisticsDrawer } from "./StatisticsDrawer";

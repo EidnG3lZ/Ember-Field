@@ -1,4 +1,4 @@
-import { FireSimulate } from "./FireSimulate";
+import { FireSimulate } from "./FireSimulateNew";
 import { SimPalette } from "./theme";
 import { getRGBAFromStr, RGBA } from "./tools";
 
