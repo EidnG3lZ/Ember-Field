@@ -7,6 +7,24 @@ export interface WallpaperProperty {
 
 export type WallpaperProperties = Record<string, WallpaperProperty | undefined>;
 
+/** applyGeneralProperties 回调的参数：全局设置，值是裸值而不是 { value } */
+export interface GeneralProperties {
+    fps?: unknown;
+}
+
+/**
+ * 读取 Wallpaper Engine「性能」标签页里的全局帧率上限。
+ * 官方推荐壁纸沿用这个全局上限，而不是自己另设一个 FPS。
+ * 返回值 0 表示用户未设上限；返回 undefined 表示本次事件没带可用值（保持原值）。
+ */
+export function fpsLimitFromGeneralProperties(properties: GeneralProperties): number | undefined {
+    const fps = properties.fps;
+    if (typeof fps !== "number" || !Number.isFinite(fps)) {
+        return undefined;
+    }
+    return fps > 0 ? fps : 0;
+}
+
 function numberValue(properties: WallpaperProperties, key: string): number | undefined {
     const value = properties[key]?.value;
     return typeof value === "number" && Number.isFinite(value) ? value : undefined;

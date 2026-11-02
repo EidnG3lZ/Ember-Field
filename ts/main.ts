@@ -5,8 +5,8 @@ import { formatNumber, loadSettings, normalizeSettings, saveSettings, Settings }
 import { SimulatorDrawer } from "./SimulatorDrawer";
 import { PowerLawFit, StatisticsDrawer } from "./StatisticsDrawer";
 import { applyTheme, isThemeId, THEMES, ThemeId } from "./theme";
-import { settingsPatchFromWallpaperProperties } from "./wallpaperProperties";
-import type { WallpaperProperties } from "./wallpaperProperties";
+import { fpsLimitFromGeneralProperties, settingsPatchFromWallpaperProperties } from "./wallpaperProperties";
+import type { GeneralProperties, WallpaperProperties } from "./wallpaperProperties";
 
 const simCanvas = document.getElementById("sim-canvas") as HTMLCanvasElement;
 const statsCanvas = document.getElementById("stats-canvas") as HTMLCanvasElement;
@@ -42,6 +42,8 @@ let controlPanel: ControlPanel;
 let cellNumberX = 1;
 let cellNumberY = 1;
 let lastIgnitionRipple = 0;
+/** Wallpaper Engine 全局帧率上限，0 表示用户没有限制（浏览器中永远是 0） */
+let globalFpsLimit = 0;
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -327,7 +329,10 @@ document.fonts.ready.then(() => {
             continue;
         }
         const usedTime = performance.now() - startTime;
-        const sleepTime = Math.max(2, settings.tickTime - usedTime);
+        // 自己的 tickTime 与 WE 全局帧率上限取更慢的那个：用户设了 30fps 就不该再跑 66fps
+        const fpsInterval = globalFpsLimit > 0 ? 1000 / globalFpsLimit : 0;
+        const targetInterval = Math.max(settings.tickTime, fpsInterval);
+        const sleepTime = Math.max(2, targetInterval - usedTime);
         console.debug(`mspt:${Math.floor(usedTime)};tps:${Math.floor(1000/(sleepTime+usedTime))}`);
         await sleep(sleepTime);
     }
@@ -342,7 +347,14 @@ document.fonts.ready.then(() => {
         }
     };
     (window as unknown as { wallpaperPropertyListener: unknown }).wallpaperPropertyListener = {
-        applyUserProperties: apply
+        applyUserProperties: apply,
+        // 用户改「性能」标签页的帧率上限时会再次触发，所以每次都覆盖
+        applyGeneralProperties: (properties: GeneralProperties) => {
+            const fps = fpsLimitFromGeneralProperties(properties);
+            if (fps !== undefined) {
+                globalFpsLimit = fps;
+            }
+        }
     };
 })();
 
@@ -352,6 +364,7 @@ if (searchParams.get("debug") === "1") {
         getSettings: () => settings,
         getStatistics: () => statistics,
         getBurningCount: () => fireSimulate.getBurningCount(),
+        getFpsLimit: () => globalFpsLimit,
         applySettings: (patch: Partial<Settings>) => applySettings(patch),
         openPanel: (open = true) => setPanelOpen(open),
         igniteAt: (x: number, y: number, radius = 4) => fireSimulate.igniteAt(x, y, radius),
