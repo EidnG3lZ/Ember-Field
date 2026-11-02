@@ -1,8 +1,8 @@
 import { Clock } from "./Clock";
 import { ControlPanel } from "./ControlPanel";
-import { createFireStatistics, FireSimulate, FireStatistics } from "./FireSimulateNew";
+import { createFireStatistics, FireSimulate, FireStatistics } from "./FireSimulate";
 import { formatNumber, loadSettings, normalizeSettings, saveSettings, Settings } from "./settings";
-import { SimulatorDrawer } from "./SimulatorDrawerNew";
+import { SimulatorDrawer } from "./SimulatorDrawer";
 import { PowerLawFit, StatisticsDrawer } from "./StatisticsDrawer";
 import { applyTheme, isThemeId, THEMES, ThemeId } from "./theme";
 import { settingsPatchFromWallpaperProperties } from "./wallpaperProperties";

@@ -1,56 +1,61 @@
 import { FireSimulate } from "./FireSimulate";
 import { SimPalette } from "./theme";
+import { getRGBAFromStr, RGBA } from "./tools";
 
 /**
- * 主画面绘制器。利用 oldGrid 做差分绘制，只重绘颜色发生变化的细胞。
+ * 主画面绘制器。
+ *
+ * 画布的后备存储直接等于网格尺寸（1 细胞 = 1 像素），像素放大交给浏览器合成器完成
+ * （CSS `image-rendering: pixelated`）。因此每帧只需要一次 putImageData：
+ * 不再需要离屏画布中转，也不需要 drawImage 做全画布缩放。
+ *
+ * 这样做的关键在于：离屏画布一旦被 drawImage 当作纹理源引用，每次 putImageData
+ * 都会触发一次纹理重上传；而直接写显示画布的后备存储只是一次内存拷贝。
  */
 export class SimulatorDrawer {
-    private context: CanvasRenderingContext2D;
-    private blockSize: number;
-    private blockNumX: number;
-    private blockNumY: number;
-    private drawWidth: number;
-    private drawHeight: number;
+    private ctx: CanvasRenderingContext2D;
+    private pixelBuffer: ImageData;
     private cellGrid: Uint8Array;
     private palette: SimPalette;
     private oldGrid: Uint8Array;
+    private tempRGBA: RGBA;
+    private cellNumX: number;
+    private cellNumY: number;
 
     constructor(
         context: CanvasRenderingContext2D | null,
-        blockSize: number,
-        blockNumX: number,
-        blockNumY: number,
         dataSource: FireSimulate,
         palette: SimPalette
     ) {
-        if (context == null) {
-            throw new Error("context is null");
+        if (context === null) {
+            throw new Error("SimulatorDrawer:context is null");
         }
-        this.context = context;
-        this.blockSize = blockSize;
-        this.blockNumX = blockNumX;
-        this.blockNumY = blockNumY;
-        this.drawWidth = blockSize * blockNumX;
-        this.drawHeight = blockSize * blockNumY;
+        this.tempRGBA = { r: 0, g: 0, b: 0, a: 0 };
+        this.ctx = context;
+        this.cellNumX = dataSource.getCellNumX();
+        this.cellNumY = dataSource.getCellNumY();
+        // 后备存储 = 网格尺寸，由 CSS 负责放大到视口
+        context.canvas.width = this.cellNumX;
+        context.canvas.height = this.cellNumY;
         this.cellGrid = dataSource.getCellGrid();
         this.palette = palette;
         this.oldGrid = new Uint8Array(this.cellGrid.length);
-        context.fillStyle = palette.dead;
-        context.fillRect(0, 0, this.drawWidth, this.drawHeight);
+        this.pixelBuffer = new ImageData(this.cellNumX, this.cellNumY);
+        this.fillBufferWithDead();
+        this.ctx.putImageData(this.pixelBuffer, 0, 0);
     }
 
-    private getCellIndex(x: number, y: number) {
-        return y * this.blockNumX + x;
-    }
-
-    private isSameColor(state1: number, state2: number) {
-        if (state1 === state2) {
-            return true;
+    /** 把整张缓冲填成背景色 */
+    private fillBufferWithDead() {
+        getRGBAFromStr(this.palette.dead, this.tempRGBA, { r: 7, g: 9, b: 11, a: 255 });
+        const data = this.pixelBuffer.data;
+        const { r, g, b, a } = this.tempRGBA;
+        for (let i = 0; i < data.length; i += 4) {
+            data[i] = r;
+            data[i + 1] = g;
+            data[i + 2] = b;
+            data[i + 3] = a;
         }
-        if ((state1 === 0 || state1 === 1) || (state2 === 0 || state2 === 1)) {
-            return false;
-        }
-        return (state1 >> 1) === (state2 >> 1);
     }
 
     private getColorStateID(state: number) {
@@ -69,38 +74,69 @@ export class SimulatorDrawer {
         return alive[hash % alive.length];
     }
 
+    /**
+     * 绘制一帧图像。只有发生变化的细胞会写入像素缓冲；
+     * 整帧没有任何变化时直接跳过上传。
+     */
     draw() {
-        const context = this.context;
-        const grid = this.cellGrid;
+        const cellGrid = this.cellGrid;
         const oldGrid = this.oldGrid;
-        const blockSize = this.blockSize;
         const palette = this.palette;
-        for (let y = 0; y < this.blockNumY; y++) {
-            const rowOffset = y * this.blockNumX;
-            for (let x = 0; x < this.blockNumX; x++) {
-                const index = rowOffset + x;
-                const cellState = grid[index];
-                const cellStateOld = oldGrid[index];
-                if (this.isSameColor(cellState, cellStateOld)) {
+        const data = this.pixelBuffer.data;
+        const width = this.cellNumX;
+        const height = this.cellNumY;
+        const tempRGBA = this.tempRGBA;
+        let dirty = false;
+
+        for (let y = 0; y < height; y++) {
+            let idx = y * width;
+            for (let x = 0; x < width; x++, idx++) {
+                const state = cellGrid[idx];
+                const prev = oldGrid[idx];
+                // 绝大多数细胞状态没变，先走最快的一步判断
+                if (state === prev) {
                     continue;
                 }
-                const colorStateID = this.getColorStateID(cellState);
-                if (colorStateID === 0) {
-                    context.fillStyle = palette.dead;
-                } else if (colorStateID === 1) {
-                    context.fillStyle = this.getAliveColor(x, y);
-                } else if (colorStateID === 2) {
-                    context.fillStyle = palette.burn[0];
-                } else if (colorStateID === 3) {
-                    context.fillStyle = palette.burn[1];
-                } else if (colorStateID === 4) {
-                    context.fillStyle = palette.burn[2];
-                } else {
-                    context.fillStyle = "#ff00ff";
+                // 燃烧阶段内部推进（如 4→5）渲染出来是同一个色阶，不必重绘。
+                // 生死两态（0/1）颜色各不相同，必须精确比较，所以要求两侧都 >1。
+                if (state > 1 && prev > 1 && (state >> 1) === (prev >> 1)) {
+                    continue;
                 }
-                context.fillRect(x * blockSize, y * blockSize, blockSize, blockSize);
-                oldGrid[index] = cellState;
+                switch (this.getColorStateID(state)) {
+                    case 0:
+                        getRGBAFromStr(palette.dead, tempRGBA, { r: 7, g: 9, b: 11, a: 255 });
+                        break;
+                    case 1:
+                        getRGBAFromStr(this.getAliveColor(x, y), tempRGBA, { r: 34, g: 184, b: 95, a: 255 });
+                        break;
+                    case 2:
+                        getRGBAFromStr(palette.burn[0], tempRGBA, { r: 255, g: 209, b: 102, a: 255 });
+                        break;
+                    case 3:
+                        getRGBAFromStr(palette.burn[1], tempRGBA, { r: 255, g: 138, b: 61, a: 255 });
+                        break;
+                    case 4:
+                        getRGBAFromStr(palette.burn[2], tempRGBA, { r: 255, g: 77, b: 109, a: 255 });
+                        break;
+                    default:
+                        tempRGBA.r = 255;
+                        tempRGBA.g = 0;
+                        tempRGBA.b = 255;
+                        tempRGBA.a = 255;
+                        break;
+                }
+                const offset = idx << 2;
+                data[offset] = tempRGBA.r;
+                data[offset + 1] = tempRGBA.g;
+                data[offset + 2] = tempRGBA.b;
+                data[offset + 3] = tempRGBA.a;
+                oldGrid[idx] = state;
+                dirty = true;
             }
+        }
+
+        if (dirty) {
+            this.ctx.putImageData(this.pixelBuffer, 0, 0);
         }
     }
 
@@ -113,8 +149,8 @@ export class SimulatorDrawer {
      * 主题切换或重新构建后全量重绘。
      */
     repaint() {
-        this.context.fillStyle = this.palette.dead;
-        this.context.fillRect(0, 0, this.drawWidth, this.drawHeight);
+        this.fillBufferWithDead();
+        // 255 不是任何合法细胞状态，强制所有细胞重新写色
         this.oldGrid.fill(255);
         this.draw();
     }
