@@ -98,8 +98,6 @@ export class FireSimulate {
         //当点火成功或外部点火时
         if (isIgnited || this.isOutsideIgnited) {
             this.isOutsideIgnited = false;
-            //清空已搜索标记
-            this.isVisited.fill(0);
             //清空统计缓存
             this.statisticsTemp = 0;
             //且跳过蔓延时
@@ -142,6 +140,8 @@ export class FireSimulate {
             return SimulateStatus.FIRE;
         } else {
             //否则转回生长状态，并添加火灾记录
+            //并清除搜索标记
+            this.isVisited.fill(0);
             this.recordFire(this.statisticsTemp);
             return SimulateStatus.REVIVE_AND_IGNITE;
         }
@@ -167,10 +167,11 @@ export class FireSimulate {
             //写标记
             advanceFlag = true;
         }
-        //燃烧被点燃的细胞，加入记录
+        //燃烧被点燃的细胞，加入记录，清理搜索标记
         //未进行扩散就跳过
         if (advanceFlag) {
             this.recordFire(this.burnCells(beIgnitedCells));
+            this.isVisited.fill(0);
         }
 
         //执行生长和点火
