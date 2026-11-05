@@ -22,6 +22,8 @@ export interface Settings {
     chartHistogram: boolean;
     showClock: boolean;
     mouseIgnite: boolean;
+    /** 是否使用循环边界：网格四边环绕相连（环面） */
+    loopMap: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -36,7 +38,8 @@ export const DEFAULT_SETTINGS: Settings = {
     chartScale: 1,
     chartHistogram: false,
     showClock: true,
-    mouseIgnite: true
+    mouseIgnite: true,
+    loopMap: true
 };
 
 const STORAGE_KEY = "ember-field.settings.v1";
@@ -85,6 +88,9 @@ export function normalizeSettings(input: Partial<Settings>): Settings {
     }
     if (typeof input.mouseIgnite === "boolean") {
         result.mouseIgnite = input.mouseIgnite;
+    }
+    if (typeof input.loopMap === "boolean") {
+        result.loopMap = input.loopMap;
     }
     return result;
 }

@@ -32,14 +32,20 @@
         "type": "bool",
         "value": true
       },
-      "skip_spread": {
+      "loop_map": {
         "order": 4,
+        "text": "使用循环网格",
+        "type": "bool",
+        "value": true
+      },
+      "skip_spread": {
+        "order": 5,
         "text": "瞬间蔓延",
         "type": "bool",
         "value": true
       },
       "cell_size": {
-        "order": 5,
+        "order": 6,
         "text": "细胞尺寸",
         "type": "slider",
         "value": 3,
@@ -50,7 +56,7 @@
         "editable": true
       },
       "p_revive": {
-        "order": 6,
+        "order": 7,
         "text": "生长率",
         "type": "slider",
         "value": 0.001,
@@ -62,7 +68,7 @@
         "editable": true
       },
       "p_ignite": {
-        "order": 7,
+        "order": 8,
         "text": "起火率",
         "type": "slider",
         "value": 0.000001,
@@ -74,7 +80,7 @@
         "editable": true
       },
       "fire_spread_speed": {
-        "order": 8,
+        "order": 9,
         "text": "蔓延速度",
         "type": "slider",
         "value": 5,
@@ -85,7 +91,7 @@
         "editable": true
       },
       "burn_status_time": {
-        "order": 9,
+        "order": 10,
         "text": "燃烧时长",
         "type": "slider",
         "value": 5,
@@ -96,7 +102,7 @@
         "editable": true
       },
       "tick_time": {
-        "order": 10,
+        "order": 11,
         "text": "帧间隔",
         "type": "slider",
         "value": 15,
@@ -107,7 +113,7 @@
         "editable": true
       },
       "chart_scale": {
-        "order": 11,
+        "order": 12,
         "text": "图表缩放",
         "type": "slider",
         "value": 1,
@@ -119,7 +125,7 @@
         "editable": true
       },
       "chart_histogram": {
-        "order": 12,
+        "order": 13,
         "text": "直方图模式",
         "type": "bool",
         "value": false

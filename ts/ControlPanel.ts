@@ -3,6 +3,7 @@ import { THEME_LIST, ThemeId } from "./theme";
 
 type BooleanKey =
     | "isSkipSpread"
+    | "loopMap"
     | "showClock"
     | "mouseIgnite"
     | "chartHistogram";
@@ -168,6 +169,7 @@ export class ControlPanel {
         }
         const switchValues: Record<BooleanKey, boolean> = {
             isSkipSpread: this.settings.isSkipSpread,
+            loopMap: this.settings.loopMap,
             showClock: this.settings.showClock,
             mouseIgnite: this.settings.mouseIgnite,
             chartHistogram: this.settings.chartHistogram
@@ -203,6 +205,9 @@ export class ControlPanel {
             grid.appendChild(this.createSlider(definition));
         }
         simulation.appendChild(grid);
+        simulation.appendChild(
+            this.createSwitch("loopMap", "使用循环网格", "火灾蔓延与鼠标点火在画面四边环绕相连")
+        );
         simulation.appendChild(
             this.createSwitch("isSkipSpread", "瞬间蔓延", "跳过逐帧动画，火灾在一帧内完成")
         );

@@ -12,6 +12,8 @@ export interface FireSimulateOptions {
     fireSpreadSpeed: number;
     burnStatusTime: number;
     isSkipSpread: boolean;
+    /** 是否使用循环边界：网格四边环绕相连（环面） */
+    isLoopGrid?: boolean;
     statistics?: FireStatistics;
 }
 
@@ -50,6 +52,9 @@ export class FireSimulate {
     private statistics: FireStatistics;
     private statisticsTemp = 0;
 
+    // 是否使用循环边界：网格四边环绕相连（环面）
+    private isLoopGrid: boolean;
+
     // 每个燃烧细胞独立计时：1..3*burnStatusTime 表示燃烧年龄，0 表示未燃烧。
     // 不同时间被点燃的细胞会错开变色和熄灭，而不是整片一起跳变。
     private burnAge: Uint8Array;
@@ -85,6 +90,7 @@ export class FireSimulate {
         this.fireSpreadSpeed = Math.max(1, options.fireSpreadSpeed);
         this.burnStatusTime = Math.max(1, options.burnStatusTime);
         this.isSkipSpread = options.isSkipSpread;
+        this.isLoopGrid = options.isLoopGrid ?? false;
         const cellNum = this.cellNumX * this.cellNumY;
         this.cellGrid = new Uint8Array(cellNum);
         this.burnAge = new Uint8Array(cellNum);
@@ -225,6 +231,10 @@ export class FireSimulate {
         this.isSkipSpread = value;
     }
 
+    setLoopGrid(value: boolean) {
+        this.isLoopGrid = value;
+    }
+
     /**
      * 批量燃烧细胞，输入为扁平数组。输入数组会被清空。
      * 输出点燃的细胞数量。
@@ -292,7 +302,8 @@ export class FireSimulate {
                     //把低1位设置为1
                     grid[idx] |= 0b1;
                 }
-                if (pIgnite > 0 && (grid[idx] & 0b1) === 1 && Math.random() < pIgnite) {
+                // 已由鼠标点火的细胞已在搜索队列中，避免同一周期重复入队
+                if (pIgnite > 0 && (grid[idx] & 0b1) === 1 && this.isVisited[idx] === 0 && Math.random() < pIgnite) {
                     //点火的细胞加入待搜索列表和添加已访问标记
                     this.isVisited[idx] = 1;
                     this.toBeAdvanceCells.push(x, y);
@@ -317,9 +328,15 @@ export class FireSimulate {
             const cellX = targetCells[i];
             const cellY = targetCells[i + 1];
             for (let d = 0; d < 8; d++) {
-                const searchingX = cellX + DIRECTION_X[d];
-                const searchingY = cellY + DIRECTION_Y[d];
-                if (searchingX < 0 || searchingX >= cellNumX || searchingY < 0 || searchingY >= cellNumY) {
+                const rawX = cellX + DIRECTION_X[d];
+                const rawY = cellY + DIRECTION_Y[d];
+                let searchingX = rawX;
+                let searchingY = rawY;
+                if (this.isLoopGrid) {
+                    // 四边环绕：-1 映射到最后一列/行，越界方向映射到另一侧
+                    searchingX = rawX < 0 ? cellNumX - 1 : (rawX >= cellNumX ? 0 : rawX);
+                    searchingY = rawY < 0 ? cellNumY - 1 : (rawY >= cellNumY ? 0 : rawY);
+                } else if (rawX < 0 || rawX >= cellNumX || rawY < 0 || rawY >= cellNumY) {
                     continue;
                 }
                 const searchingIndex = searchingY * cellNumX + searchingX;
@@ -336,11 +353,16 @@ export class FireSimulate {
      * 鼠标点火：把圆形区域内的存活细胞设为燃烧状态，返回点燃数量。
      */
     igniteAt(cellX: number, cellY: number, radius = 2) {
-        const minX = Math.max(0, Math.floor(cellX - radius));
-        const maxX = Math.min(this.cellNumX - 1, Math.ceil(cellX + radius));
-        const minY = Math.max(0, Math.floor(cellY - radius));
-        const maxY = Math.min(this.cellNumY - 1, Math.ceil(cellY + radius));
+        const cellNumX = this.cellNumX;
+        const cellNumY = this.cellNumY;
+        // 非循环边界时裁剪到网格内；循环边界时允许坐标越界，稍后按网格取模
+        const minX = this.isLoopGrid ? Math.floor(cellX - radius) : Math.max(0, Math.floor(cellX - radius));
+        const maxX = this.isLoopGrid ? Math.ceil(cellX + radius) : Math.min(cellNumX - 1, Math.ceil(cellX + radius));
+        const minY = this.isLoopGrid ? Math.floor(cellY - radius) : Math.max(0, Math.floor(cellY - radius));
+        const maxY = this.isLoopGrid ? Math.ceil(cellY + radius) : Math.min(cellNumY - 1, Math.ceil(cellY + radius));
         const radiusSquared = radius * radius;
+        // 循环边界下同一个细胞可能由多个越界坐标映射得到，需要去重
+        const wrappedIndexes = this.isLoopGrid ? new Set<number>() : null;
         let ignited = 0;
         for (let y = minY; y <= maxY; y++) {
             const dy = y - cellY;
@@ -349,18 +371,28 @@ export class FireSimulate {
                 if (dx * dx + dy * dy > radiusSquared) {
                     continue;
                 }
-                const index = y * this.cellNumX + x;
-                if ((this.cellGrid[index] & 0b00000001) === 1) {
-                    // this.addBurningCell(index);
-                    // this.bfsSearchCells.push(x, y);
-                    //直接往待扩散列表写，两个火灾状态似乎都能正常处理这种状况
-                    //仅需加入一个标记让生长状态能够知道点火了
-                    //其实还要把被点火细胞加一个已访问标记
-                    this.toBeAdvanceCells.push(x, y);
-                    this.isVisited[index] = 1;
-                    this.isOutsideIgnited = true;
-                    ignited++;
+                let cellIndexX = x;
+                let cellIndexY = y;
+                if (this.isLoopGrid) {
+                    cellIndexX = ((x % cellNumX) + cellNumX) % cellNumX;
+                    cellIndexY = ((y % cellNumY) + cellNumY) % cellNumY;
                 }
+                const index = cellIndexY * cellNumX + cellIndexX;
+                if (wrappedIndexes !== null) {
+                    if (wrappedIndexes.has(index)) {
+                        continue;
+                    }
+                    wrappedIndexes.add(index);
+                }
+                // 已经在当前火灾搜索队列里的细胞不要重复入队，否则会重复燃烧并污染统计
+                if (this.isVisited[index] !== 0 || (this.cellGrid[index] & 0b00000001) === 0) {
+                    continue;
+                }
+                // 直接往待扩散列表写，两个火灾状态都能处理外部点火
+                this.toBeAdvanceCells.push(cellIndexX, cellIndexY);
+                this.isVisited[index] = 1;
+                this.isOutsideIgnited = true;
+                ignited++;
             }
         }
         return ignited;

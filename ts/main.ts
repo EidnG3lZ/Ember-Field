@@ -70,6 +70,7 @@ function buildSimulation(preserveGrid = false) {
         fireSpreadSpeed: settings.fireSpreadSpeed,
         burnStatusTime: settings.burnStatusTime,
         isSkipSpread: settings.isSkipSpread,
+        isLoopGrid: settings.loopMap,
         statistics
     });
 
@@ -173,6 +174,9 @@ function applySettings(patch: Partial<Settings>, options: ApplyOptions = {}) {
     }
     if (settings.isSkipSpread !== previous.isSkipSpread && fireSimulate) {
         fireSimulate.setSkipSpread(settings.isSkipSpread);
+    }
+    if (settings.loopMap !== previous.loopMap && fireSimulate) {
+        fireSimulate.setLoopGrid(settings.loopMap);
     }
     if (options.syncPanel !== false && controlPanel) {
         controlPanel.setSettings(settings);

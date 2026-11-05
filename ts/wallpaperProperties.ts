@@ -59,6 +59,11 @@ export function settingsPatchFromWallpaperProperties(properties: WallpaperProper
     if (isSkipSpread !== undefined) {
         patch.isSkipSpread = isSkipSpread;
     }
+    // 循环边界：WE 编辑器里的 loop_map 开关 → Settings.loopMap
+    const loopMap = booleanValue(properties, "loop_map");
+    if (loopMap !== undefined) {
+        patch.loopMap = loopMap;
+    }
     const chartHistogram = booleanValue(properties, "chart_histogram");
     if (chartHistogram !== undefined) {
         patch.chartHistogram = chartHistogram;
