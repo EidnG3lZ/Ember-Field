@@ -35,6 +35,50 @@ function booleanValue(properties: WallpaperProperties, key: string): boolean | u
     return typeof value === "boolean" ? value : undefined;
 }
 
+/** 编辑器里用「尾数 × 10^指数」两个滑块表示一个概率 */
+interface ScientificPair {
+    mantissa: number;
+    exponent: number;
+}
+
+/**
+ * 只有一半属性到达时的补全值，对应 project.json 里的默认配置。
+ * 正常情况下壁纸启动时 WE 会一次性下发全部属性，这里只作为兜底。
+ */
+const SCIENTIFIC_DEFAULTS = {
+    revive: { mantissa: 1, exponent: -3 },
+    ignite: { mantissa: 1, exponent: -7 }
+} as const satisfies Record<string, ScientificPair>;
+
+type ScientificKey = keyof typeof SCIENTIFIC_DEFAULTS;
+
+/** 上一次生效的尾数/指数，用于回调只带其中一个属性时补全另一个 */
+const scientificCache = new Map<ScientificKey, ScientificPair>();
+
+/**
+ * 把编辑器的两个滑块合成概率值：mantissa × 10^exponent。
+ * WE 的 applyUserProperties 只保证带上本次变化的属性，所以两个滑块分开缓存、分开更新。
+ */
+function scientificValue(
+    properties: WallpaperProperties,
+    key: ScientificKey,
+    mantissaKey: string,
+    exponentKey: string
+): number | undefined {
+    const mantissa = numberValue(properties, mantissaKey);
+    const exponent = numberValue(properties, exponentKey);
+    if (mantissa === undefined && exponent === undefined) {
+        return undefined;
+    }
+    const previous = scientificCache.get(key) ?? SCIENTIFIC_DEFAULTS[key];
+    const next: ScientificPair = {
+        mantissa: mantissa ?? previous.mantissa,
+        exponent: exponent ?? previous.exponent
+    };
+    scientificCache.set(key, next);
+    return next.mantissa * Math.pow(10, next.exponent);
+}
+
 /**
  * 把 Wallpaper Engine 的 applyUserProperties 回调转换成 Settings 补丁。
  * 只读取存在且类型正确的属性，便于在浏览器中安全运行，也方便单独测试。
@@ -69,11 +113,18 @@ export function settingsPatchFromWallpaperProperties(properties: WallpaperProper
         patch.chartHistogram = chartHistogram;
     }
 
+    // 生长率 / 起火率：编辑器拆成「尾数」+「指数」两个滑块，乘回去再交给 Settings
+    const pRevive = scientificValue(properties, "revive", "p_revive_m", "p_revive_e");
+    if (pRevive !== undefined) {
+        patch.pRevive = pRevive;
+    }
+    const pIgnite = scientificValue(properties, "ignite", "p_ignite_m", "p_ignite_e");
+    if (pIgnite !== undefined) {
+        patch.pIgnite = pIgnite;
+    }
+
     const numericProperties: Array<[string, keyof Pick<Settings,
-        "pRevive" | "pIgnite" | "cellSize" | "fireSpreadSpeed" |
-        "burnStatusTime" | "tickTime" | "chartScale">]> = [
-        ["p_revive", "pRevive"],
-        ["p_ignite", "pIgnite"],
+        "cellSize" | "fireSpreadSpeed" | "burnStatusTime" | "tickTime" | "chartScale">]> = [
         ["cell_size", "cellSize"],
         ["fire_spread_speed", "fireSpreadSpeed"],
         ["burn_status_time", "burnStatusTime"],

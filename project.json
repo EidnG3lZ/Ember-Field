@@ -11,130 +11,185 @@
         "value": "0.04 0.08 0.06"
       },
       "theme": {
-        "order": 1,
+        "index": 0,
+        "options": [
+          {
+            "label": "霓虹",
+            "value": "neon"
+          },
+          {
+            "label": "终端",
+            "value": "terminal"
+          }
+        ],
+        "order": 100,
         "text": "主题",
         "type": "combo",
-        "value": "neon",
-        "options": [
-          { "label": "霓虹", "value": "neon" },
-          { "label": "终端", "value": "terminal" }
-        ]
+        "value": "neon"
       },
       "show_clock": {
-        "order": 2,
+        "index": 1,
+        "order": 101,
         "text": "显示时钟",
         "type": "bool",
         "value": true
       },
       "mouse_ignite": {
-        "order": 3,
+        "index": 2,
+        "order": 102,
         "text": "鼠标点火",
         "type": "bool",
         "value": true
       },
       "loop_map": {
-        "order": 4,
+        "index": 3,
+        "order": 103,
         "text": "使用循环网格",
         "type": "bool",
         "value": true
       },
       "skip_spread": {
-        "order": 5,
+        "index": 4,
+        "order": 104,
         "text": "瞬间蔓延",
         "type": "bool",
-        "value": true
+        "value": false
       },
       "cell_size": {
-        "order": 6,
+        "editable": true,
+        "fraction": false,
+        "index": 5,
+        "max": 6,
+        "min": 2,
+        "order": 105,
+        "step": 1,
         "text": "细胞尺寸",
         "type": "slider",
-        "value": 3,
-        "min": 2,
-        "max": 6,
-        "step": 1,
-        "fraction": false,
-        "editable": true
-      },
-      "p_revive": {
-        "order": 7,
-        "text": "生长率",
-        "type": "slider",
-        "value": 0.001,
-        "min": 0.00001,
-        "max": 0.1,
-        "step": 0.00001,
-        "fraction": true,
-        "precision": 5,
-        "editable": true
-      },
-      "p_ignite": {
-        "order": 8,
-        "text": "起火率",
-        "type": "slider",
-        "value": 0.000001,
-        "min": 0.00000001,
-        "max": 0.0001,
-        "step": 0.00000001,
-        "fraction": true,
-        "precision": 8,
-        "editable": true
+        "value": 3
       },
       "fire_spread_speed": {
-        "order": 9,
-        "text": "蔓延速度",
-        "type": "slider",
-        "value": 5,
-        "min": 1,
-        "max": 20,
-        "step": 1,
+        "editable": true,
         "fraction": false,
-        "editable": true
+        "index": 6,
+        "max": 20,
+        "min": 1,
+        "order": 106,
+        "step": 1,
+        "text": "蔓延速度（格/帧）",
+        "type": "slider",
+        "value": 5
       },
       "burn_status_time": {
-        "order": 10,
-        "text": "燃烧时长",
-        "type": "slider",
-        "value": 5,
-        "min": 1,
-        "max": 20,
-        "step": 1,
+        "editable": true,
         "fraction": false,
-        "editable": true
+        "index": 7,
+        "max": 20,
+        "min": 1,
+        "order": 107,
+        "step": 1,
+        "text": "每段燃烧时长（帧），燃烧一共三段",
+        "type": "slider",
+        "value": 2
       },
       "tick_time": {
-        "order": 11,
-        "text": "帧间隔",
-        "type": "slider",
-        "value": 15,
-        "min": 8,
-        "max": 50,
-        "step": 1,
+        "editable": true,
         "fraction": false,
-        "editable": true
+        "index": 8,
+        "max": 50,
+        "min": 8,
+        "order": 108,
+        "step": 1,
+        "text": "帧间隔（ms）",
+        "type": "slider",
+        "value": 15
       },
       "chart_scale": {
-        "order": 12,
+        "editable": true,
+        "fraction": true,
+        "index": 9,
+        "max": 1.5,
+        "min": 0.5,
+        "order": 109,
+        "precision": 2,
+        "step": 0.05,
         "text": "图表缩放",
         "type": "slider",
-        "value": 1,
-        "min": 0.5,
-        "max": 1.5,
-        "step": 0.05,
-        "fraction": true,
-        "precision": 2,
-        "editable": true
+        "value": 1
       },
       "chart_histogram": {
-        "order": 13,
+        "index": 10,
+        "order": 110,
         "text": "直方图模式",
         "type": "bool",
         "value": false
+      },
+      "p_revive": {
+        "index": 11,
+        "order": 111,
+        "text": "生长率",
+        "type": "group",
+        "value": ""
+      },
+      "p_revive_m": {
+        "fraction": true,
+        "index": 12,
+        "max": 9.99,
+        "min": 1,
+        "order": 112,
+        "precision": 3,
+        "step": 0.01,
+        "text": "尾数",
+        "type": "slider",
+        "value": 1
+      },
+      "p_revive_e": {
+        "fraction": false,
+        "index": 13,
+        "max": -1,
+        "min": -5,
+        "order": 113,
+        "text": "指数：*10^n",
+        "type": "slider",
+        "value": -3
+      },
+      "p_ignite": {
+        "index": 14,
+        "order": 114,
+        "text": "起火率",
+        "type": "group",
+        "value": ""
+      },
+      "p_ignite_m": {
+        "fraction": true,
+        "index": 15,
+        "max": 9.99,
+        "min": 1,
+        "order": 115,
+        "precision": 3,
+        "step": 0.01,
+        "text": "尾数",
+        "type": "slider",
+        "value": 1
+      },
+      "p_ignite_e": {
+        "fraction": false,
+        "index": 16,
+        "max": -4,
+        "min": -8,
+        "order": 116,
+        "text": "指数：*10^n",
+        "type": "slider",
+        "value": -7
       }
     }
   },
   "preview": "preview.jpg",
-  "tags": ["Abstract", "Nature"],
+  "tags": [
+    "Abstract",
+    "Nature"
+  ],
   "title": "Ember Field",
   "type": "web",
+  "version": 0,
   "visibility": "public"
 }
