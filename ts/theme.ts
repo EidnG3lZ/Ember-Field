@@ -37,7 +37,7 @@ export const THEMES: Record<ThemeId, Theme> = {
         description: "深色霓虹极简",
         sim: {
             dead: "#07090b",
-            alive: ["#30b822", "#22b839", "#22b85f", "#22b884", "#22b8aa"],
+            alive: ["#24c43d", "#21B838", "#1FAB34", "#1C9E30", "#1A912C"],
             burn: ["#ffd166", "#ff8a3d", "#ff4d6d"]
         },
         chart: {
@@ -59,7 +59,7 @@ export const THEMES: Record<ThemeId, Theme> = {
         description: "暖色复古终端",
         sim: {
             dead: "#010301",
-            alive: ["#60f03e", "#3ef049", "#3ef075", "#3ef0a1", "#3ef0ce"],
+            alive: ["#60f03e", "#5AE33B", "#55D638", "#50C934", "#4BBD31"],
             burn: ["#d9ff7a", "#ffd166", "#ff7a3d"]
         },
         chart: {
