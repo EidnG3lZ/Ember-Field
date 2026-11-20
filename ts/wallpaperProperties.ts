@@ -112,6 +112,11 @@ export function settingsPatchFromWallpaperProperties(properties: WallpaperProper
     if (chartHistogram !== undefined) {
         patch.chartHistogram = chartHistogram;
     }
+    // 存活细胞配色：柏林噪声色块 / 坐标哈希散点
+    const perlinAliveColor = booleanValue(properties, "perlin_color");
+    if (perlinAliveColor !== undefined) {
+        patch.perlinAliveColor = perlinAliveColor;
+    }
 
     // 生长率 / 起火率：编辑器拆成「尾数」+「指数」两个滑块，乘回去再交给 Settings
     const pRevive = scientificValue(properties, "revive", "p_revive_m", "p_revive_e");

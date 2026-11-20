@@ -6,7 +6,8 @@ type BooleanKey =
     | "loopMap"
     | "showClock"
     | "mouseIgnite"
-    | "chartHistogram";
+    | "chartHistogram"
+    | "perlinAliveColor";
 
 type NumericKey =
     | "pRevive"
@@ -172,7 +173,8 @@ export class ControlPanel {
             loopMap: this.settings.loopMap,
             showClock: this.settings.showClock,
             mouseIgnite: this.settings.mouseIgnite,
-            chartHistogram: this.settings.chartHistogram
+            chartHistogram: this.settings.chartHistogram,
+            perlinAliveColor: this.settings.perlinAliveColor
         };
         for (const [key, input] of this.switches) {
             input.checked = switchValues[key];
@@ -214,6 +216,13 @@ export class ControlPanel {
         appearance.appendChild(simulation);
 
         const display = section("显示与交互");
+        display.appendChild(
+            this.createSwitch(
+                "perlinAliveColor",
+                "柏林噪声配色",
+                "存活细胞按柏林噪声生成的色块上色，关闭则逐格哈希取色"
+            )
+        );
         display.appendChild(this.createSlider(CHART_SCALE_SLIDER));
         display.appendChild(this.createSwitch("chartHistogram", "直方图模式", "用对数分箱聚合代替原始散点"));
         display.appendChild(this.createSwitch("showClock", "显示时钟", "顶部本地时间"));

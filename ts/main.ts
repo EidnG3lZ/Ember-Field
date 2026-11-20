@@ -2,9 +2,10 @@ import { Clock } from "./Clock";
 import { ControlPanel } from "./ControlPanel";
 import { createFireStatistics, FireSimulate, FireStatistics } from "./FireSimulate";
 import { formatNumber, loadSettings, normalizeSettings, saveSettings, Settings } from "./settings";
-import { SimulatorDrawer } from "./SimulatorDrawer";
+import { AliveColorMode, SimulatorDrawer } from "./SimulatorDrawer";
 import { PowerLawFit, StatisticsDrawer } from "./StatisticsDrawer";
 import { applyTheme, isThemeId, THEMES, ThemeId } from "./theme";
+import { generateColorIndexMap } from "./tools";
 import { fpsLimitFromGeneralProperties, settingsPatchFromWallpaperProperties } from "./wallpaperProperties";
 import type { GeneralProperties, WallpaperProperties } from "./wallpaperProperties";
 
@@ -51,6 +52,31 @@ function themeDefinition() {
     return THEMES[settings.theme];
 }
 
+/**
+ * 存活细胞的颜色索引表（柏林噪声）。
+ *
+ * 索引在壁纸启动时整表算一次：逐格采样 fBm + 直方图均衡，几十万格也就毫秒级。
+ * 之后按「宽 × 高 × 调色板档数」缓存复用，只有网格尺寸变化
+ * （窗口缩放、调整细胞尺寸）时才重建；颜色索引是静态的，绘制器只读不写。
+ */
+const ALIVE_COLOR_NOISE_SEED = 20261107;
+let aliveColorIndexCache: { key: string; data: Uint8Array } | null = null;
+
+function getAliveColorIndex(width: number, height: number, colorCount: number): Uint8Array {
+    const key = width + "x" + height + "x" + colorCount;
+    if (aliveColorIndexCache !== null && aliveColorIndexCache.key === key) {
+        return aliveColorIndexCache.data;
+    }
+    const data = generateColorIndexMap({
+        width,
+        height,
+        colorCount,
+        seed: ALIVE_COLOR_NOISE_SEED
+    });
+    aliveColorIndexCache = { key, data };
+    return data;
+}
+
 function buildSimulation(preserveGrid = false) {
     // 使用画布的 CSS 尺寸而不是 window.innerWidth/Height，
     // 避免浏览器窗口尺寸变化时画布与视口不同步而留下黑边。
@@ -90,11 +116,16 @@ function buildSimulation(preserveGrid = false) {
 
     // 画布后备存储由绘制器设成网格尺寸，放大交给 CSS（image-rendering: pixelated）
     const simulatorContext = simCanvas.getContext("2d");
-    simulatorDrawer = new SimulatorDrawer(
-        simulatorContext,
-        fireSimulate,
-        themeDefinition().sim
-    );
+    const simPalette = themeDefinition().sim;
+    const aliveColorMode: AliveColorMode = settings.perlinAliveColor ? "index" : "hash";
+    simulatorDrawer = new SimulatorDrawer({
+        context: simulatorContext,
+        dataSource: fireSimulate,
+        palette: simPalette,
+        aliveColorMode,
+        // 启动时生成的柏林噪声索引表：整表只算一次，绘制器只读不写
+        aliveColorIndex: getAliveColorIndex(cellNumberX, cellNumberY, simPalette.alive.length)
+    });
 }
 
 function updateStatisticsChips(fit: PowerLawFit) {
@@ -177,6 +208,14 @@ function applySettings(patch: Partial<Settings>, options: ApplyOptions = {}) {
     }
     if (settings.loopMap !== previous.loopMap && fireSimulate) {
         fireSimulate.setLoopGrid(settings.loopMap);
+    }
+    // 配色开关只切换取色方式，索引表本身不用重算；
+    // 放在重建模拟之后，保证读到的 cellNumberX/Y 已经是新网格的尺寸。
+    if (settings.perlinAliveColor !== previous.perlinAliveColor && simulatorDrawer) {
+        simulatorDrawer.setAliveColorMode(
+            settings.perlinAliveColor ? "index" : "hash",
+            getAliveColorIndex(cellNumberX, cellNumberY, themeDefinition().sim.alive.length)
+        );
     }
     if (options.syncPanel !== false && controlPanel) {
         controlPanel.setSettings(settings);
@@ -369,6 +408,8 @@ if (searchParams.get("debug") === "1") {
         getStatistics: () => statistics,
         getBurningCount: () => fireSimulate.getBurningCount(),
         getFpsLimit: () => globalFpsLimit,
+        getAliveColorMode: () => simulatorDrawer?.getAliveColorMode(),
+        getAliveColorIndex: () => aliveColorIndexCache,
         applySettings: (patch: Partial<Settings>) => applySettings(patch),
         openPanel: (open = true) => setPanelOpen(open),
         igniteAt: (x: number, y: number, radius = 4) => fireSimulate.igniteAt(x, y, radius),

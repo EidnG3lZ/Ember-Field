@@ -1,195 +1,222 @@
 {
-  "contentrating": "Everyone",
-  "description": "基于元胞自动机的森林火灾模拟壁纸。绿色细胞持续生长，闪电随机点燃，火焰以分形方式蔓延。顶部显示本地时间，底部统计面板以双对数坐标呈现火灾规模与发生频率的幂律分布。",
-  "file": "index.html",
-  "general": {
-    "properties": {
-      "schemecolor": {
-        "order": 0,
-        "text": "ui_browse_properties_scheme_color",
-        "type": "color",
-        "value": "0.04 0.08 0.06"
-      },
-      "theme": {
-        "index": 0,
-        "options": [
-          {
-            "label": "霓虹",
-            "value": "neon"
-          },
-          {
-            "label": "终端",
-            "value": "terminal"
-          }
-        ],
-        "order": 100,
-        "text": "主题",
-        "type": "combo",
-        "value": "neon"
-      },
-      "show_clock": {
-        "index": 1,
-        "order": 101,
-        "text": "显示时钟",
-        "type": "bool",
-        "value": true
-      },
-      "mouse_ignite": {
-        "index": 2,
-        "order": 102,
-        "text": "鼠标点火",
-        "type": "bool",
-        "value": true
-      },
-      "loop_map": {
-        "index": 3,
-        "order": 103,
-        "text": "使用循环网格",
-        "type": "bool",
-        "value": true
-      },
-      "skip_spread": {
-        "index": 4,
-        "order": 104,
-        "text": "瞬间蔓延",
-        "type": "bool",
-        "value": false
-      },
-      "cell_size": {
-        "editable": true,
-        "fraction": false,
-        "index": 5,
-        "max": 6,
-        "min": 2,
-        "order": 105,
-        "step": 1,
-        "text": "细胞尺寸",
-        "type": "slider",
-        "value": 3
-      },
-      "fire_spread_speed": {
-        "editable": true,
-        "fraction": false,
-        "index": 6,
-        "max": 20,
-        "min": 1,
-        "order": 106,
-        "step": 1,
-        "text": "蔓延速度（格/帧）",
-        "type": "slider",
-        "value": 5
-      },
-      "burn_status_time": {
-        "editable": true,
-        "fraction": false,
-        "index": 7,
-        "max": 20,
-        "min": 1,
-        "order": 107,
-        "step": 1,
-        "text": "每段燃烧时长（帧），燃烧一共三段",
-        "type": "slider",
-        "value": 2
-      },
-      "tick_time": {
-        "editable": true,
-        "fraction": false,
-        "index": 8,
-        "max": 50,
-        "min": 8,
-        "order": 108,
-        "step": 1,
-        "text": "帧间隔（ms）",
-        "type": "slider",
-        "value": 15
-      },
-      "chart_scale": {
-        "editable": true,
-        "fraction": true,
-        "index": 9,
-        "max": 1.5,
-        "min": 0.5,
-        "order": 109,
-        "precision": 2,
-        "step": 0.05,
-        "text": "图表缩放",
-        "type": "slider",
-        "value": 1
-      },
-      "chart_histogram": {
-        "index": 10,
-        "order": 110,
-        "text": "直方图模式",
-        "type": "bool",
-        "value": false
-      },
-      "p_revive": {
-        "index": 11,
-        "order": 111,
-        "text": "生长率",
-        "type": "group",
-        "value": ""
-      },
-      "p_revive_m": {
-        "fraction": true,
-        "index": 12,
-        "max": 9.99,
-        "min": 1,
-        "order": 112,
-        "precision": 3,
-        "step": 0.01,
-        "text": "尾数",
-        "type": "slider",
-        "value": 1
-      },
-      "p_revive_e": {
-        "fraction": false,
-        "index": 13,
-        "max": -1,
-        "min": -5,
-        "order": 113,
-        "text": "指数：*10^n",
-        "type": "slider",
-        "value": -3
-      },
-      "p_ignite": {
-        "index": 14,
-        "order": 114,
-        "text": "起火率",
-        "type": "group",
-        "value": ""
-      },
-      "p_ignite_m": {
-        "fraction": true,
-        "index": 15,
-        "max": 9.99,
-        "min": 1,
-        "order": 115,
-        "precision": 3,
-        "step": 0.01,
-        "text": "尾数",
-        "type": "slider",
-        "value": 1
-      },
-      "p_ignite_e": {
-        "fraction": false,
-        "index": 16,
-        "max": -4,
-        "min": -8,
-        "order": 116,
-        "text": "指数：*10^n",
-        "type": "slider",
-        "value": -7
-      }
-    }
-  },
-  "preview": "preview.jpg",
-  "tags": [
-    "Abstract",
-    "Nature"
-  ],
-  "title": "Ember Field",
-  "type": "web",
-  "version": 0,
-  "visibility": "public"
+	"contentrating" : "Everyone",
+	"description" : "基于元胞自动机的森林火灾模拟壁纸。绿色细胞持续生长，闪电随机点燃，火焰以分形方式蔓延。顶部显示本地时间，底部统计面板以双对数坐标呈现火灾规模与发生频率的幂律分布。",
+	"file" : "index.html",
+	"general" : 
+	{
+		"properties" : 
+		{
+			"schemecolor" : 
+			{
+				"order" : 100,
+				"text" : "ui_browse_properties_scheme_color",
+				"type" : "color",
+				"value" : "0.04 0.08 0.06",
+				"index" : 0
+			},
+			"theme" : 
+			{
+				"index" : 1,
+				"options" : 
+				[
+					{
+						"label" : "霓虹",
+						"value" : "neon"
+					},
+					{
+						"label" : "终端",
+						"value" : "terminal"
+					}
+				],
+				"order" : 101,
+				"text" : "主题",
+				"type" : "combo",
+				"value" : "neon"
+			},
+			"perlin_color" : 
+			{
+				"index" : 2,
+				"order" : 102,
+				"text" : "柏林噪声配色",
+				"type" : "bool",
+				"value" : true
+			},
+			"show_clock" : 
+			{
+				"index" : 3,
+				"order" : 103,
+				"text" : "显示时钟",
+				"type" : "bool",
+				"value" : true
+			},
+			"mouse_ignite" : 
+			{
+				"index" : 4,
+				"order" : 104,
+				"text" : "鼠标点火",
+				"type" : "bool",
+				"value" : true
+			},
+			"loop_map" : 
+			{
+				"index" : 5,
+				"order" : 105,
+				"text" : "使用循环网格",
+				"type" : "bool",
+				"value" : true
+			},
+			"skip_spread" : 
+			{
+				"index" : 6,
+				"order" : 106,
+				"text" : "瞬间蔓延",
+				"type" : "bool",
+				"value" : false
+			},
+			"cell_size" : 
+			{
+				"editable" : true,
+				"fraction" : false,
+				"index" : 7,
+				"max" : 6,
+				"min" : 2,
+				"order" : 107,
+				"step" : 1,
+				"text" : "细胞尺寸",
+				"type" : "slider",
+				"value" : 3
+			},
+			"fire_spread_speed" : 
+			{
+				"editable" : true,
+				"fraction" : false,
+				"index" : 8,
+				"max" : 20,
+				"min" : 1,
+				"order" : 108,
+				"step" : 1,
+				"text" : "蔓延速度（格/帧）",
+				"type" : "slider",
+				"value" : 5
+			},
+			"burn_status_time" : 
+			{
+				"editable" : true,
+				"fraction" : false,
+				"index" : 9,
+				"max" : 20,
+				"min" : 1,
+				"order" : 109,
+				"step" : 1,
+				"text" : "每段燃烧时长（帧），燃烧一共三段",
+				"type" : "slider",
+				"value" : 2
+			},
+			"tick_time" : 
+			{
+				"editable" : true,
+				"fraction" : false,
+				"index" : 10,
+				"max" : 50,
+				"min" : 8,
+				"order" : 110,
+				"step" : 1,
+				"text" : "帧间隔（ms）",
+				"type" : "slider",
+				"value" : 15
+			},
+			"chart_scale" : 
+			{
+				"editable" : true,
+				"fraction" : true,
+				"index" : 11,
+				"max" : 1.5,
+				"min" : 0.5,
+				"order" : 111,
+				"precision" : 2,
+				"step" : 0.05,
+				"text" : "图表缩放",
+				"type" : "slider",
+				"value" : 1
+			},
+			"chart_histogram" : 
+			{
+				"index" : 12,
+				"order" : 112,
+				"text" : "直方图模式",
+				"type" : "bool",
+				"value" : false
+			},
+			"p_revive" : 
+			{
+				"index" : 13,
+				"order" : 113,
+				"text" : "生长率",
+				"type" : "group",
+				"value" : ""
+			},
+			"p_revive_m" : 
+			{
+				"fraction" : true,
+				"index" : 14,
+				"max" : 9.99,
+				"min" : 1,
+				"order" : 114,
+				"precision" : 3,
+				"step" : 0.01,
+				"text" : "尾数",
+				"type" : "slider",
+				"value" : 1
+			},
+			"p_revive_e" : 
+			{
+				"fraction" : false,
+				"index" : 15,
+				"max" : -1,
+				"min" : -5,
+				"order" : 115,
+				"text" : "指数：*10^n",
+				"type" : "slider",
+				"value" : -3
+			},
+			"p_ignite" : 
+			{
+				"index" : 16,
+				"order" : 116,
+				"text" : "起火率",
+				"type" : "group",
+				"value" : ""
+			},
+			"p_ignite_m" : 
+			{
+				"fraction" : true,
+				"index" : 17,
+				"max" : 9.99,
+				"min" : 1,
+				"order" : 117,
+				"precision" : 3,
+				"step" : 0.01,
+				"text" : "尾数",
+				"type" : "slider",
+				"value" : 1
+			},
+			"p_ignite_e" : 
+			{
+				"fraction" : false,
+				"index" : 18,
+				"max" : -4,
+				"min" : -8,
+				"order" : 118,
+				"text" : "指数：*10^n",
+				"type" : "slider",
+				"value" : -7
+			}
+		}
+	},
+	"preview" : "preview.jpg",
+	"tags" : [ "Abstract", "Nature" ],
+	"title" : "Ember Field",
+	"type" : "web",
+	"version" : 0,
+	"visibility" : "public"
 }

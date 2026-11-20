@@ -24,6 +24,8 @@ export interface Settings {
     mouseIgnite: boolean;
     /** 是否使用循环边界：网格四边环绕相连（环面） */
     loopMap: boolean;
+    /** 存活细胞是否按柏林噪声生成的颜色索引上色（关闭则退回按坐标哈希取色） */
+    perlinAliveColor: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -39,7 +41,8 @@ export const DEFAULT_SETTINGS: Settings = {
     chartHistogram: false,
     showClock: true,
     mouseIgnite: true,
-    loopMap: true
+    loopMap: true,
+    perlinAliveColor: true
 };
 
 const STORAGE_KEY = "ember-field.settings.v1";
@@ -91,6 +94,9 @@ export function normalizeSettings(input: Partial<Settings>): Settings {
     }
     if (typeof input.loopMap === "boolean") {
         result.loopMap = input.loopMap;
+    }
+    if (typeof input.perlinAliveColor === "boolean") {
+        result.perlinAliveColor = input.perlinAliveColor;
     }
     return result;
 }
